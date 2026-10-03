@@ -81,6 +81,8 @@ async def verify() -> None:
                 outage = by_ticket["synthetic_outage"]
                 billing = by_ticket["synthetic_billing"]
                 assert outage["schema_valid"] and billing["schema_valid"], records
+                assert outage["status"] == billing["status"] == "done", records
+                assert status["needs_review"] == 1, status
                 assert outage["values"]["category"] == "outage", outage["values"]
                 assert billing["values"]["category"] == "billing", billing["values"]
                 assert billing["values"]["refund_amount"] == 125.50, billing["values"]

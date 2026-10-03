@@ -51,7 +51,8 @@ def correct_record(service: JobManager, record: Record, correction: Correction) 
         updated.reviewed = False  # Any later edit requires an explicit review decision again.
     if correction.reviewed is not None:
         updated.reviewed = correction.reviewed
-    updated.status = "done" if updated.reviewed else "needs_review"
+    # Completeness drives routing; explicit human approval still gates CSV export.
+    updated.status = "done" if updated.schema_valid else "needs_review"
     updated.version += 1
     service.store.records[updated.id] = updated
     for item in service.store.jobs[updated.job_id].items:

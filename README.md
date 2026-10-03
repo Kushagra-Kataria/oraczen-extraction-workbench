@@ -188,11 +188,18 @@ grounding (`grounded`, `inferred`, `missing`), evidence, raw attempts, current e
 original notes, and a version. `grounded` means a quote exists in the ticket, not
 calibrated confidence or semantic proof.
 
-The review queue focuses on missing or ambiguous customer facts. A missing quote for
-the safe defaults `requested_action: none` and `escalated: false` remains visibly
-labelled as inferred but does not send an otherwise complete record to review. Routine
-attachment metadata is informational; identity conflicts, currency/amount ambiguity,
-typo normalization, relative dates, and multi-issue tickets still require review.
+Review routing depends on required-field completeness. A record is **Done** when
+`company`, `product`, `category`, `severity`, `requested_action`, and `escalated` all
+contain schema-valid values. Missing or invalid required values stay empty in the
+draft and require review. `escalated: false` and `requested_action: none` are valid
+values, not missing fields. `refund_amount` and `deadline` may be empty.
+
+Missing quotes, inferred values, and ambiguity notes remain visible but do not route
+a complete record to review. If optional values remain invalid after the one repair
+attempt, the backend leaves them empty, preserves the raw attempts, and validates the
+repaired draft before marking it Done. Unsupported fields are omitted from that draft.
+Provider connection/timeouts remain **Failed**. Human edits use the same completeness
+rule; **Done** is separate from explicit review approval, which still gates CSV export.
 
 ```text
 queued + running + done + failed = total

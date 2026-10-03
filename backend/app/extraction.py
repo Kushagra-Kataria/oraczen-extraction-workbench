@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from .providers.base import ExtractionProvider
 from .schemas import (
     FIELDS,
-    OPTIONAL_FIELDS,
     Extraction,
     FieldError,
     FieldMeta,
@@ -50,40 +49,13 @@ def populate_draft(record: Record, proposal: Proposal, ticket: Ticket) -> None:
         )
 
 
-def requires_human_review(record: Record) -> bool:
-    """Keep the review queue for meaningful uncertainty, not harmless defaults.
-
-    A missing quote for a customer-selected value needs a reviewer. By contrast,
-    ``requested_action: none`` and ``escalated: false`` are safe negative defaults:
-    the ticket does not need to explicitly say that it is *not* escalated or that it
-    requests no action. They remain labelled as inferred in the UI without making a
-    complete record look broken.
-
-    Notes are informational by default. The small set below describes ambiguity or a
-    transformation that a reviewer should actively check.
-    """
-    for name in FIELDS:
-        meta = record.field_meta[name]
-        value = record.values[name]
-        if name in OPTIONAL_FIELDS or meta.grounding == "grounded":
-            continue
-        if name == "requested_action" and value == "none":
-            continue
-        if name == "escalated" and value is False:
-            continue
-        return True
-
-    review_note_prefixes = (
-        "Company was inferred",
-        "Company in the body differs",
-        "Product spelling was normalized",
-        "Multiple USD amounts",
-        "Original amount:",
-        "Spoken amount is approximate",
-        "Ambiguous deadline",
-        "Multiple issues:",
-    )
-    return any(note.startswith(review_note_prefixes) for note in record.notes)
+def complete_record(record: Record, extraction: Extraction) -> Record:
+    """Complete records leave the review queue; evidence and approval stay separate."""
+    record.values = extraction.model_dump(mode="json")
+    record.schema_valid = True
+    record.errors = []
+    record.status = "done"
+    return record
 
 
 async def extract_ticket(
@@ -117,13 +89,25 @@ async def extract_ticket(
             feedback = json.dumps([error.model_dump() for error in record.errors])
             continue
 
-        record.values = extraction.model_dump(mode="json")
-        record.schema_valid = True
-        record.errors = []
-        record.status = "needs_review" if requires_human_review(record) else "done"
+        return complete_record(record, extraction)
+
+    # The draft retains only individually valid fields. Invalid optional values are
+    # already null; missing/invalid required values remain null and fail this check.
+    # Validate the repaired draft before accepting it, never fabricate missing facts.
+    try:
+        extraction = Extraction.model_validate_json(json.dumps(record.values))
+    except ValidationError as exc:
+        # Preserve envelope/JSON diagnostics alongside the missing required fields.
+        record.errors = [
+            error for error in record.errors if error.field == "record"
+        ] + field_errors(exc)
+        record.notes.append(
+            "Output failed validation twice. Complete the required fields in the draft."
+        )
         return record
 
     record.notes.append(
-        "Output failed validation twice. Correct the draft or consult the raw output."
+        "Used validated draft fields after two rejected outputs. Invalid optional values "
+        "were left empty and unsupported fields omitted; raw attempts are preserved."
     )
-    return record
+    return complete_record(record, extraction)

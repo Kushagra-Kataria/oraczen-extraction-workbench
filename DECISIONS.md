@@ -67,10 +67,21 @@ against the source, but quote existence does not prove semantic correctness.
 Human-edited fields have explicit provenance; whole-record approval is separate.
 Original attempts and current field provenance are retained, not a full edit-event audit.
 
+At the owner's request, review routing uses required-field completeness only. Complete
+schema-valid records are Done even with inferred values or ambiguity notes; the six
+required fields must have valid values, while refund/deadline may be null. Invalid
+required values are left missing for human repair. After one provider retry, invalid
+optional values can be omitted from the individually validated draft; the entire
+repaired record must still pass Pydantic before completion. Evidence/notes remain
+visible, but no longer trigger review. This reduces the queue and shifts responsibility
+for checking plausible but incorrect values to the reviewer before export approval.
+
 PATCH reuses the extraction field annotations, validates before replacing state, and
 requires complete validity for approval. A version rejects stale writes. Partial repairs
 can be saved. Later edits reset approval unless explicitly re-approved. The UI preserves
 drafts during polling and asks before switching records/filters.
+Completing the last missing required field changes status to Done without granting
+approval; editing an otherwise complete record keeps it Done while resetting approval.
 
 In-memory storage meets the brief and limits setup to two processes. Restarting loses
 jobs, approvals, edits, and versions. Multiple workers would disagree; one is required.

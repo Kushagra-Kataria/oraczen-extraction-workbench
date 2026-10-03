@@ -35,6 +35,12 @@ editable if the full output fails. The worker stores a terminal result and the n
 shows it. Human edits carry a version and only changed fields. Validation precedes
 mutation; approval gates export.
 
+Review routing depends on the six required business fields. Complete valid records
+are Done even if evidence is inferred or notes contain ambiguity. Optional amount/date
+may be null; after a failed repair, invalid optional values can be omitted from the
+validated draft. A missing or invalid required value keeps the draft in Needs review.
+Human edits follow the same rule. Done describes completeness, not export approval.
+
 ## Questions to be ready for
 
 - **What does `await` do?** It allows other event-loop work while an async operation waits.

@@ -45,3 +45,23 @@ State remains process-local, and the frontend's Vite choice departs from the bri
 
 This validates the live integration on invented examples. Accuracy and throughput
 on a real 150-ticket Gemini batch have not been evaluated. Account quota still applies.
+
+## Required-field review routing — 4 October 2026
+
+- Changed extraction and human-edit routing to use required-field completeness.
+  Missing quotes, inferred values, notes, and absent optional fields no longer force
+  complete records into review. Invalid required values remain missing in the draft.
+- After one unsuccessful provider repair, an individually validated draft can finish
+  with invalid optional values left empty; complete Pydantic validation is still
+  required. Raw attempts and explanatory notes are preserved.
+- Backend: 48 tests passed; Ruff lint passed. Added checks for every required field
+  being absent/null, optional omission, informational notes, unmatched evidence,
+  invalid optional values, completion after edits, and separate export approval.
+- Offline mock processing of all 150 assignment tickets completed with zero failures:
+  22 Done and 128 Needs review. Every review draft lacked at least one valid required
+  field; 126 lacked severity under the conservative mock rules. These are mock counts,
+  not Gemini results or accuracy measurements.
+- Repeated the live synthetic Gemini smoke test: both complete invented records were
+  Done; only the sparse `?` record needed review. Corrections, approval, versions, and
+  reviewed CSV passed. No assignment tickets were sent for this verification.
+- Restarted the running Gemini backend to load the updated routing policy.

@@ -78,6 +78,39 @@ async def test_incomplete_record_cannot_be_approved(session):
     assert not manager.store.records[record["id"]].reviewed
 
 
+async def test_completing_required_fields_leaves_review_without_auto_approving(session):
+    client, manager = session
+    job_id, record = await completed_job(client, manager)
+    response = await client.patch(
+        f"/api/records/{record['id']}",
+        json={"version": 1, "fields": {"product": "Zen Vault", "severity": "low"}},
+    )
+    assert response.status_code == 200
+    updated = response.json()
+    assert updated["status"] == "done"
+    assert updated["schema_valid"]
+    assert not updated["reviewed"]
+    assert (await client.get(f"/api/jobs/{job_id}")).json()["needs_review"] == 0
+    exported = await client.get(f"/api/jobs/{job_id}/export.csv")
+    assert exported.headers["x-exported-records"] == "0"
+
+
+async def test_editing_complete_record_keeps_it_done_and_resets_approval(session):
+    client, manager = session
+    _, record = await completed_job(client, manager, ["tkt_0005"])
+    url = f"/api/records/{record['id']}"
+    approved = await client.patch(url, json={"version": 1, "reviewed": True})
+    assert approved.status_code == 200
+    response = await client.patch(
+        url,
+        json={"version": approved.json()["version"], "fields": {"severity": "high"}},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "done"
+    assert response.json()["schema_valid"]
+    assert not response.json()["reviewed"]
+
+
 async def test_export_includes_only_reviewed_records_and_handles_csv_text(session):
     client, manager = session
     job_id, record = await completed_job(client, manager, ["tkt_0003", "tkt_0005"])
