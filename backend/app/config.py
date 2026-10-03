@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -12,7 +12,9 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
 
-    extraction_provider: Literal["mock"] = "mock"
+    extraction_provider: Literal["mock", "gemini"] = "mock"
+    gemini_api_key: SecretStr = SecretStr("")
+    gemini_model: str = Field(default="gemini-3.1-flash-lite", pattern=r"^[a-zA-Z0-9._-]+$")
     max_concurrency: int = Field(default=4, ge=1, le=20)
     mock_delay_ms: int = Field(default=650, ge=0, le=10000)
     provider_timeout_seconds: float = Field(default=30, gt=0, le=120)

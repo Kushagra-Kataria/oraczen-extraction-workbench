@@ -21,7 +21,10 @@ from .schemas import (
 
 def field_errors(exc: ValidationError) -> list[FieldError]:
     return [
-        FieldError(field=str(error["loc"][0]) if error["loc"] else "record", message=error["msg"])
+        FieldError(
+            field=str(error["loc"][0]) if error["loc"] and error["loc"][0] in FIELDS else "record",
+            message=error["msg"],
+        )
         for error in exc.errors(include_url=False)
     ]
 

@@ -41,6 +41,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  health: (signal?: AbortSignal) =>
+    request<{ status: string; provider: string }>('/health', { signal }),
   tickets: (signal?: AbortSignal) => request<{ tickets: Ticket[] }>('/tickets', { signal }),
   start: (ticket_ids: string[]) =>
     request<Job>('/jobs', {

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import Settings
 from .jobs import JobManager
 from .providers.base import ExtractionProvider
+from .providers.gemini import GeminiProvider
 from .providers.mock import MockProvider
 from .routes import router
 from .store import Store
@@ -19,14 +20,23 @@ def create_app(settings: Settings | None = None, provider: ExtractionProvider | 
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
+        selected = provider or (
+            MockProvider(configuration.mock_delay_ms)
+            if configuration.extraction_provider == "mock"
+            else GeminiProvider(configuration)
+        )
         service = JobManager(
             Store(load_tickets(configuration.dataset_path())),
-            provider or MockProvider(configuration.mock_delay_ms),
+            selected,
             configuration,
         )
         application.state.manager = service
-        yield
-        await service.close()
+        try:
+            yield
+        finally:
+            await service.close()
+            if isinstance(selected, GeminiProvider):
+                await selected.close()
 
     application = FastAPI(title="Extraction Workbench", version="0.1.0", lifespan=lifespan)
     application.add_middleware(
