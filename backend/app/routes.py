@@ -1,11 +1,15 @@
 """HTTP boundaries: validate requests, delegate work, and serialize current state."""
 
+import csv
+import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 
 from .jobs import JobManager
-from .schemas import Job, JobRequest
+from .review import correct_record
+from .schemas import FIELDS, Correction, Job, JobRequest
 
 router = APIRouter(prefix="/api")
 
@@ -73,3 +77,48 @@ async def cancel_job(job_id: str, service: Manager):
     job = find_job(service, job_id)
     await service.cancel(job_id)
     return job.snapshot()
+
+
+@router.patch("/records/{record_id}")
+async def patch_record(record_id: str, body: Correction, service: Manager):
+    record = service.store.records.get(record_id)
+    if not record:
+        raise HTTPException(404, "Record not found")
+    updated = correct_record(service, record, body)
+    return {
+        **updated.model_dump(mode="json"),
+        "ticket": service.store.tickets[updated.ticket_id].model_dump(mode="json"),
+    }
+
+
+def csv_cell(value):
+    # Prevent customer text from being interpreted as a formula by spreadsheet apps.
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    if isinstance(value, bool):
+        return str(value).lower()
+    return value
+
+
+@router.get("/jobs/{job_id}/export.csv")
+async def export_csv(job_id: str, service: Manager):
+    job = find_job(service, job_id)
+    records = [service.store.records[item.record_id] for item in job.items if item.record_id]
+    reviewed = [record for record in records if record.reviewed and record.schema_valid]
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["ticket_id", *FIELDS, "human_edited_fields"])
+    for record in reviewed:
+        edited = ";".join(name for name in FIELDS if record.field_meta[name].source == "human")
+        writer.writerow(
+            [record.ticket_id, *[csv_cell(record.values[name]) for name in FIELDS], edited]
+        )
+    return Response(
+        output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="reviewed-{job.id}.csv"',
+            "X-Exported-Records": str(len(reviewed)),
+            "X-Skipped-Records": str(len(job.items) - len(reviewed)),
+        },
+    )
