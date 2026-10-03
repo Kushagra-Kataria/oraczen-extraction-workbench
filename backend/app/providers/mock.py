@@ -48,18 +48,25 @@ class MockProvider:
             notes.append("Company in the body differs from the sender domain; verify the identity.")
 
         category_rules = [
-            ("churn_risk", r"non-renewal|do not renew|termination clause|not renew"),
+            ("churn_risk", r"non-renewal|do not renew|termination clause|not renew|contract lapse"),
             ("billing", r"billed|charged|invoice|refund|credit|factures|remboursement"),
-            ("outage", r"failed overnight|unavailable|service down|dash(?:board|bord) is blank"),
-            ("feature_request", r"any plan to add|bulk re-run|SSO|Entra ID"),
+            (
+                "outage",
+                r"failed overnight|unavailable|service down|dash(?:board|bord) is blank"
+                r"|completely down|nobody can run|throwing 502",
+            ),
+            ("feature_request", r"any plan to add|bulk re-run|SSO|Entra ID|roadmap|row-level"),
             ("bug", r"serial numbers|serial-number|apostrophe|drops rows|error|erreur|échecs"),
             ("how_to", r"how do|where do|does .*count|is there|can you"),
         ]
         category = None
-        for candidate, pattern in category_rules:
-            quote = first_match(text, pattern)
-            if quote:
-                category, evidence["category"] = candidate, quote
+        for source in (body, ticket.subject):
+            for candidate, pattern in category_rules:
+                quote = first_match(source, pattern)
+                if quote:
+                    category, evidence["category"] = candidate, quote
+                    break
+            if category:
                 break
 
         severity_quote = first_match(
@@ -89,9 +96,13 @@ class MockProvider:
                 r"confirm|written plan|explain|how do|where do|quick one|any plan|is there",
             ),
         ]
+        # A support agent offering an option is not the customer's requested action.
+        action_text = "\n".join(
+            line for line in body.splitlines() if not line.strip().upper().startswith("AGENT:")
+        )
         action = "none"
         for candidate, pattern in action_rules:
-            quote = first_match(body, pattern)
+            quote = first_match(action_text, pattern)
             if quote:
                 action, evidence["requested_action"] = candidate, quote
                 break

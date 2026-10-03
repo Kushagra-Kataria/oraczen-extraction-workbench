@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 import { api } from '../lib/api';
@@ -46,4 +47,57 @@ it('shows an individual result before the batch completes and stops polling at d
   });
   expect(api.job).toHaveBeenCalledTimes(2);
   expect(api.results).toHaveBeenCalledTimes(2);
+});
+
+it('keeps an edited record selected when a ticket earlier in the sort order finishes', async () => {
+  vi.clearAllMocks();
+  const first = makeRecord();
+  const later = makeRecord({
+    id: 'job:tkt_0003',
+    ticket_id: 'tkt_0003',
+    ticket: { ...first.ticket, id: 'tkt_0003', subject: 'Earlier ticket' },
+  });
+  const progress: Job = {
+    id: 'job',
+    state: 'running',
+    created_at: '2026-08-15T00:00:00Z',
+    total: 2,
+    queued: 0,
+    running: 1,
+    done: 1,
+    failed: 0,
+    needs_review: 1,
+    items: [
+      { ticket_id: 'tkt_0005', status: 'needs_review', record_id: first.id },
+      { ticket_id: 'tkt_0003', status: 'running', record_id: null },
+    ],
+  };
+  vi.mocked(api.job)
+    .mockResolvedValueOnce(progress)
+    .mockResolvedValue({ ...progress, state: 'done', running: 0, done: 2 });
+  vi.mocked(api.results)
+    .mockResolvedValueOnce({ records: [first] })
+    .mockResolvedValue({ records: [later, first] });
+  render(
+    <MemoryRouter initialEntries={['/jobs/job']}>
+      <Routes>
+        <Route path="/jobs/:id" element={<JobPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByLabelText('Company');
+  const user = userEvent.setup();
+  await user.clear(screen.getByLabelText('Company'));
+  await user.type(screen.getByLabelText('Company'), 'Unsaved company');
+  await waitFor(() => expect(screen.getByText('Processing complete')).toBeInTheDocument(), {
+    timeout: 2000,
+  });
+  expect(screen.getByLabelText('Company')).toHaveValue('Unsaved company');
+  expect(screen.getByLabelText('Review tkt_0005')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /tkt_0003.*Earlier ticket/ }));
+  expect(screen.getByText(/Save your edits before switching/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Company')).toHaveValue('Unsaved company');
+  await user.click(screen.getByRole('button', { name: 'Discard and switch' }));
+  expect(screen.getByLabelText('Review tkt_0003')).toBeInTheDocument();
+  expect(screen.getByLabelText('Company')).toHaveValue('Acme');
 });
