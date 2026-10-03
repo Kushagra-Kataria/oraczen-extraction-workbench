@@ -6,9 +6,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, TypeAdapter, field_validator
 
-Product = Literal[
-    "Zen Orchestrator", "Zen Studio", "Zen Connect", "Zen Insights", "Zen Vault"
-]
+Product = Literal["Zen Orchestrator", "Zen Studio", "Zen Connect", "Zen Insights", "Zen Vault"]
 Category = Literal["outage", "billing", "bug", "feature_request", "how_to", "churn_risk"]
 Severity = Literal["low", "medium", "high", "critical"]
 Action = Literal["refund", "credit", "fix", "callback", "information", "none"]
