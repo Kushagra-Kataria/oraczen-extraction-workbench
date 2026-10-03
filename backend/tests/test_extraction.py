@@ -52,6 +52,15 @@ async def test_invalid_output_is_retried_with_actual_validation_errors(tickets, 
     assert len(result.raw_outputs) == 2
 
 
+async def test_safe_negative_defaults_do_not_force_a_valid_ticket_into_review(tickets):
+    result = await extract_ticket(tickets["tkt_0005"], "job", MockProvider(0))
+    assert result.schema_valid
+    assert result.attempts == 2
+    assert result.values["requested_action"] == "none"
+    assert result.values["escalated"] is False
+    assert result.status == "done"
+
+
 async def test_repeated_invalid_output_preserves_a_reviewable_draft(tickets, valid):
     provider = ScriptedProvider([{**valid, "product": "Imaginary"}])
     result = await extract_ticket(tickets["tkt_0003"], "job", provider)

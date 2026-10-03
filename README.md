@@ -168,6 +168,12 @@ grounding (`grounded`, `inferred`, `missing`), evidence, raw attempts, current e
 original notes, and a version. `grounded` means a quote exists in the ticket, not
 calibrated confidence or semantic proof.
 
+The review queue focuses on missing or ambiguous customer facts. A missing quote for
+the safe defaults `requested_action: none` and `escalated: false` remains visibly
+labelled as inferred but does not send an otherwise complete record to review. Routine
+attachment metadata is informational; identity conflicts, currency/amount ambiguity,
+typo normalization, relative dates, and multi-issue tickets still require review.
+
 ```text
 queued + running + done + failed = total
 done includes needs_review; needs_review is also reported as a subset

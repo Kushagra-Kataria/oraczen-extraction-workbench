@@ -50,6 +50,42 @@ def populate_draft(record: Record, proposal: Proposal, ticket: Ticket) -> None:
         )
 
 
+def requires_human_review(record: Record) -> bool:
+    """Keep the review queue for meaningful uncertainty, not harmless defaults.
+
+    A missing quote for a customer-selected value needs a reviewer. By contrast,
+    ``requested_action: none`` and ``escalated: false`` are safe negative defaults:
+    the ticket does not need to explicitly say that it is *not* escalated or that it
+    requests no action. They remain labelled as inferred in the UI without making a
+    complete record look broken.
+
+    Notes are informational by default. The small set below describes ambiguity or a
+    transformation that a reviewer should actively check.
+    """
+    for name in FIELDS:
+        meta = record.field_meta[name]
+        value = record.values[name]
+        if name in OPTIONAL_FIELDS or meta.grounding == "grounded":
+            continue
+        if name == "requested_action" and value == "none":
+            continue
+        if name == "escalated" and value is False:
+            continue
+        return True
+
+    review_note_prefixes = (
+        "Company was inferred",
+        "Company in the body differs",
+        "Product spelling was normalized",
+        "Multiple USD amounts",
+        "Original amount:",
+        "Spoken amount is approximate",
+        "Ambiguous deadline",
+        "Multiple issues:",
+    )
+    return any(note.startswith(review_note_prefixes) for note in record.notes)
+
+
 async def extract_ticket(
     ticket: Ticket, job_id: str, provider: ExtractionProvider, timeout_seconds: float = 30
 ) -> Record:
@@ -84,12 +120,7 @@ async def extract_ticket(
         record.values = extraction.model_dump(mode="json")
         record.schema_valid = True
         record.errors = []
-        uncertain = any(
-            record.field_meta[name].grounding != "grounded"
-            for name in FIELDS
-            if name not in OPTIONAL_FIELDS
-        )
-        record.status = "needs_review" if uncertain or record.notes else "done"
+        record.status = "needs_review" if requires_human_review(record) else "done"
         return record
 
     record.notes.append(
