@@ -15,6 +15,9 @@ The original brief is in [ASSIGNMENT.md](ASSIGNMENT.md). It requires Next.js App
 React/Vite was explicitly requested for this project and departs from that requirement;
 documenting the choice does not make it compliant. Other required workflows are implemented.
 See [DECISIONS.md](DECISIONS.md) for technical and product choices.
+The [complete project specification](output/pdf/Extraction_Workbench_Project_Specification.pdf)
+describes the feature set, contracts, workflow, verification, and implementation limits.
+Its editable text is in [docs/PROJECT_SPECIFICATION.md](docs/PROJECT_SPECIFICATION.md).
 
 ## Prerequisites
 
