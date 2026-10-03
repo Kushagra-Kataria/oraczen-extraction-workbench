@@ -23,3 +23,25 @@ These checks validate the mock workflow. Gemini transport is simulated in tests;
 live Gemini calls and semantic extraction accuracy were not verified. Installation
 used locally cached downloads; download time on another machine depends on its network.
 State remains process-local, and the frontend's Vite choice departs from the brief.
+
+## Gemini integration verification — 4 October 2026
+
+- Configured a local ignored `backend/.env` with Gemini mode and a private API key.
+- A live `gemini-3.1-flash-lite` request returned a valid structured extraction.
+- Ran `backend/scripts/smoke_gemini.py` against an isolated FastAPI application with
+  two invented tickets and a sparse `?` ticket. All three reached terminal results
+  with zero failures; the sparse ticket correctly skipped the provider call.
+- Verified outage/billing categories, exact USD refund extraction, field validation,
+  a human correction, approval, stale-version rejection, and one-row reviewed CSV.
+- The script created temporary synthetic data and did not send assignment tickets
+  or change jobs in the running application.
+- Fixed automated test isolation: local dotenv files and provider environment
+  overrides no longer affect test settings or cause real Gemini calls.
+- Backend: all 30 tests and Ruff lint passed while local Gemini mode was configured.
+- Frontend: all eight tests, production build, and Prettier check passed.
+- Restarted FastAPI in Gemini mode. Health through the Vite proxy returned
+  `{"status":"ok","provider":"gemini"}`; the inbox loaded all 150 source tickets.
+- The browser displayed **Gemini provider** and the full inbox.
+
+This validates the live integration on invented examples. Accuracy and throughput
+on a real 150-ticket Gemini batch have not been evaluated. Account quota still applies.

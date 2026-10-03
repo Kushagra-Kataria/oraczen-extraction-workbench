@@ -47,7 +47,10 @@ Optional Gemini 3.1 Flash-Lite was chosen for structured extraction and its docu
 free tier. Model availability/quota depend on the account; the model is configurable.
 The adapter sends source instructions and a JSON schema. Remote proposals permit
 nulls while the local Pydantic contract stays authoritative. Transport tests verify
-request shape and shared retries; no live call was verified with a real key.
+request shape and shared retries. On 4 October 2026, a live check with invented
+outage/billing tickets verified extraction, USD refund parsing, validation, corrections,
+approval, stale-edit protection, and CSV export. Assignment tickets were not sent in
+that check; semantic accuracy on those 150 tickets remains unevaluated.
 References: [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite),
 [pricing](https://ai.google.dev/gemini-api/docs/pricing),
 [REST API](https://ai.google.dev/api/generate-content).
@@ -83,7 +86,9 @@ Browser checks exercise demo processing, correction, approval, and CSV download.
 Setup is checked in a fresh local clone.
 
 Another day would add SQLite and an edit-event audit, labeled accuracy evaluation,
-a provider RPM limiter/backoff, broader date/currency handling, and live Gemini checks.
+a provider RPM limiter/backoff and broader date/currency handling. The opt-in live
+Gemini smoke script uses only invented data; labeled assignment accuracy checks remain
+future work.
 Keyboard shortcuts and single-record reruns are deferred. The mock's narrow phrase
 rules and quote-only grounding are the weakest parts: they establish workflow behavior,
 not semantic accuracy. Drafts are not durable; internal navigation away from the job

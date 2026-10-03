@@ -108,8 +108,22 @@ Never put a key in a `VITE_` variable or commit `.env`.
 
 The adapter follows the [Gemini REST API](https://ai.google.dev/api/generate-content).
 Its request shape and repair path are tested with a simulated HTTP transport.
-**Live Gemini extraction has not been verified with a real key.** Mock mode is the
-fully tested grading path.
+Live Gemini 3.1 Flash-Lite was verified on 4 October 2026 using invented tickets:
+outage/billing extraction, USD refund extraction, validation, corrections, approval,
+stale-edit protection, and reviewed CSV export passed. This checks integration,
+not accuracy across the assignment dataset. Mock mode remains the grading default.
+
+To repeat that optional live check, run from `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/smoke_gemini.py
+```
+
+On macOS/Linux: `.venv/bin/python scripts/smoke_gemini.py`. The script requires your
+Gemini key and consumes API quota. It creates an isolated app with invented tickets
+in a temporary directory; it does not send the assignment dataset or change jobs in
+the running workbench. Normal automated tests ignore local `.env` and provider
+environment settings and remain offline.
 
 ## Usage and demo
 
