@@ -1,9 +1,31 @@
-export const PRODUCTS = ['Zen Orchestrator', 'Zen Studio', 'Zen Connect', 'Zen Insights', 'Zen Vault'] as const;
-export const CATEGORIES = ['outage', 'billing', 'bug', 'feature_request', 'how_to', 'churn_risk'] as const;
+export const PRODUCTS = [
+  'Zen Orchestrator',
+  'Zen Studio',
+  'Zen Connect',
+  'Zen Insights',
+  'Zen Vault',
+] as const;
+export const CATEGORIES = [
+  'outage',
+  'billing',
+  'bug',
+  'feature_request',
+  'how_to',
+  'churn_risk',
+] as const;
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
 export const ACTIONS = ['refund', 'credit', 'fix', 'callback', 'information', 'none'] as const;
-export const FIELDS = ['company', 'product', 'category', 'severity', 'requested_action', 'refund_amount', 'deadline', 'escalated'] as const;
-export type FieldName = typeof FIELDS[number];
+export const FIELDS = [
+  'company',
+  'product',
+  'category',
+  'severity',
+  'requested_action',
+  'refund_amount',
+  'deadline',
+  'escalated',
+] as const;
+export type FieldName = (typeof FIELDS)[number];
 
 export interface Ticket {
   id: string;
@@ -53,7 +75,7 @@ export interface ReviewRecord {
 }
 
 export function humanEdited(record: ReviewRecord): boolean {
-  return FIELDS.some(name => record.field_meta[name].source === 'human');
+  return FIELDS.some((name) => record.field_meta[name].source === 'human');
 }
 
 export function label(value: string): string {

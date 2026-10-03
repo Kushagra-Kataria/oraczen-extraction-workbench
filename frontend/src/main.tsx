@@ -13,7 +13,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route element={<Layout />}>
           <Route path="/" element={<TicketsPage />} />
           <Route path="/jobs/:id" element={<JobPage />} />
-          <Route path="*" element={<p>Page not found. <a href="/">Return to the inbox.</a></p>} />
+          <Route
+            path="*"
+            element={
+              <p>
+                Page not found. <a href="/">Return to the inbox.</a>
+              </p>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
