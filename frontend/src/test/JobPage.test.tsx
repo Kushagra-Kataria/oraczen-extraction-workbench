@@ -1,10 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { expect, it, vi } from 'vitest';
 import { api } from '../lib/api';
 import { type Job } from '../lib/types';
-import { JobPage } from '../pages/JobPage';
+import { JobPage } from '../views/JobPage';
 import { makeRecord } from './fixtures';
 
 vi.mock('../lib/api', async (importOriginal) => {
@@ -32,13 +31,7 @@ it('shows an individual result before the batch completes and stops polling at d
     .mockResolvedValueOnce(running)
     .mockResolvedValue({ ...running, state: 'done', running: 0, done: 2 });
   vi.mocked(api.results).mockResolvedValue({ records: [makeRecord()] });
-  render(
-    <MemoryRouter initialEntries={['/jobs/job']}>
-      <Routes>
-        <Route path="/jobs/:id" element={<JobPage />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  render(<JobPage id="job" />);
   expect(await screen.findByLabelText('Review tkt_0005')).toBeInTheDocument();
   expect(screen.getByText('Extracting tickets…')).toBeInTheDocument();
   expect(screen.queryByText('Processing complete')).not.toBeInTheDocument();
@@ -78,13 +71,7 @@ it('keeps an edited record selected when a ticket earlier in the sort order fini
   vi.mocked(api.results)
     .mockResolvedValueOnce({ records: [first] })
     .mockResolvedValue({ records: [later, first] });
-  render(
-    <MemoryRouter initialEntries={['/jobs/job']}>
-      <Routes>
-        <Route path="/jobs/:id" element={<JobPage />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  render(<JobPage id="job" />);
   await screen.findByLabelText('Company');
   const user = userEvent.setup();
   await user.clear(screen.getByLabelText('Company'));

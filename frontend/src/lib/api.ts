@@ -1,6 +1,7 @@
 import type { Job, ReviewRecord, Ticket } from './types';
 
-const BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+// Next.js forwards this same-origin prefix to FastAPI in development and production.
+const BASE = '/api';
 
 export class ApiError extends Error {
   constructor(

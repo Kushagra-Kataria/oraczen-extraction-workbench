@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { api } from '../lib/api';
 import { label, type Ticket } from '../lib/types';
 
@@ -23,7 +25,7 @@ export function TicketsPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,7 +84,7 @@ export function TicketsPage() {
     setError('');
     try {
       const job = await api.start([...selected]);
-      navigate(`/jobs/${job.id}`);
+      router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start extraction.');
       setStarting(false);

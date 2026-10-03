@@ -15,6 +15,8 @@ htmlcov/
 # Frontend dependencies and build output
 node_modules/
 dist/
+.next/
+next-env.d.ts
 coverage/
 *.tsbuildinfo
 
@@ -26,3 +28,6 @@ Thumbs.db
 
 # Local logs
 *.log
+
+# Local verification clones and document renders
+/tmp/

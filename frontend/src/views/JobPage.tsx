@@ -1,12 +1,13 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import Link from 'next/link';
 import { StatusBadge } from '../components/StatusBadge';
 import { RecordEditor } from '../components/RecordEditor';
 import { api } from '../lib/api';
 import { humanEdited, type Job, type ReviewRecord } from '../lib/types';
 
-export function JobPage() {
-  const { id = '' } = useParams();
+export function JobPage({ id }: { id: string }) {
   const [job, setJob] = useState<Job | null>(null);
   const [records, setRecords] = useState<ReviewRecord[]>([]);
   const [error, setError] = useState('');
@@ -127,7 +128,7 @@ export function JobPage() {
 
   return (
     <>
-      <Link className="back-link" to="/">
+      <Link className="back-link" href="/">
         ← Ticket inbox
       </Link>
       <div className="page-heading">

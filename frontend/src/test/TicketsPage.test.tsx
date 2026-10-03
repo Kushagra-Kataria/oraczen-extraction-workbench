@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { api } from '../lib/api';
-import { TicketsPage } from '../pages/TicketsPage';
+import { TicketsPage } from '../views/TicketsPage';
 import { ticket } from './fixtures';
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/api')>();
@@ -23,14 +25,7 @@ it('filters tickets and submits only the selected IDs before navigating to the j
   vi.mocked(api.start).mockResolvedValue({ id: 'created' } as Awaited<
     ReturnType<typeof api.start>
   >);
-  render(
-    <MemoryRouter>
-      <Routes>
-        <Route path="/" element={<TicketsPage />} />
-        <Route path="/jobs/:id" element={<p>Job opened</p>} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  render(<TicketsPage />);
   const user = userEvent.setup();
   await screen.findByText('Search bug');
   await user.type(screen.getByLabelText('Search tickets'), 'apostrophe');
@@ -38,7 +33,7 @@ it('filters tickets and submits only the selected IDs before navigating to the j
   await user.click(screen.getByLabelText('Select all filtered tickets'));
   await user.click(screen.getByRole('button', { name: /Extract 1 ticket/ }));
   await waitFor(() => expect(api.start).toHaveBeenCalledWith(['tkt_0003']));
-  expect(await screen.findByText('Job opened')).toBeInTheDocument();
+  await waitFor(() => expect(push).toHaveBeenCalledWith('/jobs/created'));
 });
 
 it('can select the complete source batch without relying on the review demo', async () => {
@@ -48,14 +43,7 @@ it('can select the complete source batch without relying on the review demo', as
   vi.mocked(api.start).mockResolvedValue({ id: 'all-tickets' } as Awaited<
     ReturnType<typeof api.start>
   >);
-  render(
-    <MemoryRouter>
-      <Routes>
-        <Route path="/" element={<TicketsPage />} />
-        <Route path="/jobs/:id" element={<p>Job opened</p>} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  render(<TicketsPage />);
   const user = userEvent.setup();
   await screen.findByText('Search bug');
   await user.click(screen.getByRole('button', { name: 'Select all 2 tickets →' }));
