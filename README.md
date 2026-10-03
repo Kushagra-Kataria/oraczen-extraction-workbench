@@ -8,16 +8,18 @@ An optional Gemini adapter uses the same validation and retry pipeline.
 
 ## Stack and scope
 
-Python/FastAPI/Pydantic backend, React/Vite/TypeScript frontend, and process-local storage.
+Python/FastAPI/Pydantic backend, Next.js App Router/React/TypeScript frontend, and process-local storage.
 Two processes communicate over HTTP. No database, Docker, or global CLI is needed.
 
-The original brief is in [ASSIGNMENT.md](ASSIGNMENT.md). It requires Next.js App Router.
-React/Vite was explicitly requested for this project and departs from that requirement;
-documenting the choice does not make it compliant. Other required workflows are implemented.
+The original brief is in [ASSIGNMENT.md](ASSIGNMENT.md). The frontend uses its required
+Next.js App Router, with `/` and `/jobs/[id]` routes and a shared root layout.
 See [DECISIONS.md](DECISIONS.md) for technical and product choices.
 The [complete project specification](output/pdf/Extraction_Workbench_Project_Specification.pdf)
 describes the feature set, contracts, workflow, verification, and implementation limits.
 Its editable text is in [docs/PROJECT_SPECIFICATION.md](docs/PROJECT_SPECIFICATION.md).
+The optional `docs/build_specification_pdf.py` script regenerates the PDF using
+ReportLab (`python -m pip install reportlab`, then `python docs/build_specification_pdf.py`
+from the root). ReportLab is not required to run the application.
 
 ## Prerequisites
 
@@ -97,14 +99,18 @@ existing setups, but `backend/.env` takes precedence when both files exist.
 | `TICKETS_PATH` | `data/tickets.jsonl` | Path relative to repo root or absolute |
 | `GEMINI_API_KEY` | empty | Server-only key required only in Gemini mode |
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Optional real model identifier |
-| `BACKEND_URL` | `http://127.0.0.1:8000` | Vite development/preview proxy target |
-| `VITE_API_BASE_URL` | `/api` | Browser API prefix |
+| `BACKEND_URL` | `http://127.0.0.1:8000` | Next.js API rewrite target for development and production |
+
+The browser always calls `/api`. To change the backend address, set `BACKEND_URL` in
+the frontend process, `frontend/.env.local`, or the root `.env` before starting/building
+Next.js. Backend-only settings stay in `backend/.env`. API rewrites are recorded at
+build time, so rebuild before changing the production backend target.
 
 For real extraction, set `EXTRACTION_PROVIDER=gemini` and your own `GEMINI_API_KEY`.
 Tickets are then sent to Google's Gemini API. Check your account's current free-tier
 quota before a batch; concurrency limiting is not requests-per-minute limiting.
 Provider errors fail individual items without aborting the job.
-Never put a key in a `VITE_` variable or commit `.env`.
+Never put a key in a `NEXT_PUBLIC_` variable or commit `.env`.
 
 The adapter follows the [Gemini REST API](https://ai.google.dev/api/generate-content).
 Its request shape and repair path are tested with a simulated HTTP transport.
@@ -165,7 +171,8 @@ become failed with cancellation notes; the job becomes `cancelled`.
 ## Architecture and contracts
 
 ```text
-React/Vite → FastAPI → tracked job → shared semaphore → mock/Gemini provider
+Next.js App Router → HTTP /api rewrite → FastAPI → tracked job → shared semaphore
+                                                            → mock/Gemini provider
                                                     → Pydantic validation
                                                     → retry once with errors
                                                     → in-memory review record
@@ -267,10 +274,10 @@ cancellation, all 150 tickets, corrections, stale versions, CSV, timeouts, and t
 simulated Gemini transport. Frontend tests cover selection, early results, field
 errors, provenance, numeric payloads, and protecting drafts during polling/switching.
 
-To check the built frontend, stop its dev server and run `npm.cmd run preview` after
-building, keeping FastAPI running. Preview uses the same proxy on port 5173.
-External hosting needs SPA fallback for `/jobs/:id` and an API reverse proxy; Vite
-preview is not a production deployment service.
+To serve the production frontend, stop its dev server and run `npm.cmd run start`
+after building, keeping FastAPI running. Both development and production use port
+5173 and forward `/api` to FastAPI. Next.js handles direct visits to `/jobs/[id]` and
+unknown-page responses without a separate SPA fallback configuration.
 
 ## Troubleshooting and limitations
 

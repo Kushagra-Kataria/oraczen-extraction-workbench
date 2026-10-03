@@ -20,8 +20,12 @@ notes guide that reading rather than replacing it.
 | `backend/app/main.py` | Startup/shutdown resource ownership |
 | `frontend/src/lib/types.ts` | API contracts and selectable field values |
 | `frontend/src/lib/api.ts` | HTTP requests, configuration, field errors |
-| `frontend/src/pages/TicketsPage.tsx` | Filtered display and independent selection |
-| `frontend/src/pages/JobPage.tsx` | Polling, partial results, ordering, active record |
+| `frontend/src/app/layout.tsx` | Root HTML, metadata, shared application layout |
+| `frontend/src/app/page.tsx` | App Router inbox entry |
+| `frontend/src/app/jobs/[id]/page.tsx` | Dynamic server route passes job ID to client workbench |
+| `frontend/next.config.ts` | Same-origin API rewrites to the separate Python backend |
+| `frontend/src/views/TicketsPage.tsx` | Filtered display and independent selection |
+| `frontend/src/views/JobPage.tsx` | Polling, partial results, ordering, active record |
 | `frontend/src/components/RecordEditor.tsx` | Local draft, server version, save/approval |
 | `backend/app/providers/gemini.py` | Optional real JSON proposals and client cleanup |
 
@@ -64,6 +68,10 @@ Human edits follow the same rule. Done describes completeness, not export approv
 - **Why derive counters?** Independently incremented counters can drift from item states.
 - **Why count needs-review as processed?** Extraction ended; human review has a separate lifecycle.
 - **Why keep a local draft?** Replacing inputs on every poll would erase mid-edit text.
+- **Why client components?** Ticket selection, polling, and editable drafts need browser
+  state and effects. The server route resolves the job ID; FastAPI still owns extraction.
+- **Why an API rewrite?** Browser requests stay on the frontend origin while Next.js
+  forwards them to FastAPI. The same HTTP contract works in dev and production.
 - **What disappears on restart?** Jobs, corrections, approvals, and versions; only the source reloads.
 - **Why no queue service/database?** The brief permits in-memory state. Durable production
   jobs would need persistence and different scheduling infrastructure.

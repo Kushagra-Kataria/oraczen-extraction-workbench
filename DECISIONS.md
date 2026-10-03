@@ -55,9 +55,14 @@ References: [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flas
 [pricing](https://ai.google.dev/gemini-api/docs/pricing),
 [REST API](https://ai.google.dev/api/generate-content).
 
-React/Vite/TypeScript was explicitly requested by the owner. It departs from the brief's
-Next.js App Router requirement; documentation does not make this compliant. React
-Router preserves `/` and `/jobs/:id`. The local Vite proxy keeps requests same-origin.
+The frontend was migrated from Vite to Next.js App Router to meet the brief's stack
+requirement. Server route components define `/` and `/jobs/[id]`; interactive inbox,
+polling, and review components use client boundaries. The dynamic job route awaits
+its parameters and passes the ID to the client workbench. Next.js rewrites `/api`
+to the separate FastAPI process in development and production, keeping requests
+same-origin and credentials server-only. No extraction logic moved into Next.js.
+Port 5173 was retained to preserve existing local URLs. Vitest still uses Vite as
+its test engine; the application itself is built and served exclusively by Next.js.
 Plain CSS and system font fallbacks avoid an external font/component dependency.
 
 ## Review and trade-offs
@@ -103,5 +108,5 @@ future work.
 Keyboard shortcuts and single-record reruns are deferred. The mock's narrow phrase
 rules and quote-only grounding are the weakest parts: they establish workflow behavior,
 not semantic accuracy. Drafts are not durable; internal navigation away from the job
-page can discard them despite record-switch/reload guards. The Vite departure remains
-a submission risk.
+page can discard them despite record-switch/reload guards. Required-field-only routing
+still departs from the brief when twice-invalid optional values are discarded.

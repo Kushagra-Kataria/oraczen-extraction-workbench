@@ -1,6 +1,6 @@
 # Extraction Workbench - Project Specification
 
-Snapshot: 3 October 2026, code commit d0b3567.
+Updated: 4 October 2026, Next.js App Router migration.
 
 ORACZEN / TAKE-HOME B
 
@@ -12,10 +12,10 @@ A full-stack workspace for turning customer support conversations into validated
 
 | Input | Business fields | Current checks |
 | --- | --- | --- |
-| 150 source tickets | 8 structured values | 30 backend + 8 frontend tests |
+| 150 source tickets | 8 structured values | 48 backend + 8 frontend tests |
 
-### Implementation snapshot - 3 October 2026
-The backend and frontend are implemented. The running app uses the deterministic mock provider. An optional Gemini adapter is implemented and tested with simulated HTTP responses; a live Gemini call has not been verified. This document describes code snapshot <b>d0b3567</b> and distinguishes completed work from future additions.
+### Implementation snapshot - 4 October 2026
+Python/FastAPI and Next.js App Router implement the two-service workflow. Mock remains the no-key grading default. The optional Gemini adapter has passed a live integration check using invented tickets; accuracy across the assignment dataset is not measured. This specification includes the frontend migration and the current required-field review policy.
 
 Submission: Sunday, 4 October 2026, 12:00 PM IST. Deliver a public GitHub repository containing source code, README.md, DECISIONS.md, .env.example, and a clear history of real development commits.
 
@@ -97,12 +97,12 @@ Select -> schedule -> provider -> validate -> store -> human review -> CSV.
 | 3. Bound concurrency | Tracked asynchronous tasks share one semaphore across jobs. Default cap: four provider calls. |
 | 4. Skip sparse input | Bodies exactly '?' or 'please advise' create incomplete review drafts without provider calls. |
 | 5. Validate output | Check the proposal envelope, each business field, and exact source-quote matches. |
-| 6. Retry or finalize | After invalid output, retry once with actual field errors. Second failure retains partial values/raw JSON and becomes needs_review. |
+| 6. Retry or finalize | Retry once with field errors. Missing required fields retain a needs_review draft. Current policy permits dropping invalid optional values before accepting a fully validated draft; this departs from the brief's twice-invalid-output rule. Raw attempts remain available. |
 | 7. Isolate failures | Per-attempt timeout or provider exceptions fail one item; other tickets continue. |
 
 ### Completion and approval are different
 
-A job is done when all items have reached a terminal state. An item marked done has a complete proposal without a review-triggering issue under the current policy; it is not automatically approved for CSV. Needs-review items also count as processed. A person must approve every record intended for export.
+A job is done when all items have reached a terminal state. An item marked done has schema-valid required values; inference and ambiguity notes do not force review under the current policy. It is not automatically approved for CSV. Needs-review items also count as processed. A person must approve every record intended for export.
 
 ```text
 queued + running + done + failed = total
@@ -129,9 +129,9 @@ Severity uses explicit phrases such as urgent, critical, scheduled-job failure, 
 | Deliberate mock failures | 0005 returns invalid severity on attempt one and repairs it. 0003 returns an invalid product on both attempts. |
 
 ### Why some results require review
-Missing required facts, unsupported positive values, conflicts, normalization, currency/amount ambiguity, relative deadlines, and multi-issue notes trigger review. Safe defaults action=none and escalated=false remain labelled inferred without forcing review. Routine attachment notes are informational. Quote matching proves a phrase exists, not that its interpretation is correct.
+Missing or invalid required values require review. Conflicts, normalization, currency/amount ambiguity, relative deadlines, and multi-issue notes remain visible but do not route a complete record to review. action=none and escalated=false are valid values, labelled inferred when unquoted. Quote matching proves a phrase exists, not that its interpretation is correct.
 
-Gemini receives the same source, instructions, JSON schema, and repair feedback. Remote proposals may contain nulls; local Pydantic validation remains authoritative. The current review-note trigger uses known text prefixes, so arbitrary LLM wording may miss an optional ambiguity; structured warning codes are a future improvement.
+Gemini receives source instructions, a JSON schema, and repair feedback. Remote proposals may contain nulls; local Pydantic validation remains authoritative. Grounding flags and notes expose uncertainty to the reviewer. Current routing deliberately follows required-field completeness, with export still requiring explicit approval.
 
 PROJECT SPECIFICATION / 06
 
@@ -166,12 +166,12 @@ Two local services communicate over HTTP. One backend worker owns process-local 
 
 | Layer / source | Responsibility |
 | --- | --- |
-| frontend/ - React, Vite, TypeScript | React Router pages, selection, polling, local drafts, evidence display, correction controls, responsive CSS. |
+| frontend/ - Next.js, React, TypeScript | App Router pages and root layout; client selection, polling, drafts, evidence display, corrections, and responsive CSS. |
 | backend/app/routes.py | FastAPI HTTP boundaries, ID checks, status/results, corrections, cancellation, and reviewed CSV. |
 | schemas.py + review.py | Strict Pydantic contracts, partial-field validation, versions, approval, and provenance. |
 | jobs.py + store.py | Tracked tasks, global semaphore, counter arithmetic, cancellation, and in-memory dictionaries. |
 | extraction.py + providers/ | Shared validation/retry/grounding pipeline; interchangeable mock and Gemini adapters. |
-| config.py + tickets.py | Root .env settings, secret handling, stable paths, and JSONL loading. |
+| config.py + tickets.py | Backend/root .env settings, secret handling, stable paths, and JSONL loading. |
 
 | Method and route | Request / response purpose |
 | --- | --- |
@@ -184,7 +184,7 @@ Two local services communicate over HTTP. One backend worker owns process-local 
 | PATCH /api/records/{id} | {version, fields, reviewed?}; validated correction or 422/409. |
 | GET /api/jobs/{id}/export.csv | CSV attachment containing reviewed, valid records. |
 
-Development and preview requests use Vite's /api proxy. Job-page polling reads progress then results approximately once per second, stops at terminal state, and aborts on unmount. Production hosting would need an API reverse proxy and SPA fallback for /jobs/:id. Cloud deployment is not part of the current implementation.
+Next.js rewrites /api requests to FastAPI in development and production. App Router defines / and /jobs/[id], including direct visits to job URLs and real unknown-page responses. The dynamic server route awaits its parameters and passes the ID to a client workbench. Polling reads progress then results about once per second, stops at terminal state, and aborts on unmount. Cloud deployment is outside scope.
 
 PROJECT SPECIFICATION / 08
 
@@ -213,7 +213,7 @@ npm.cmd run dev
 
 Open http://127.0.0.1:5173. API documentation: http://127.0.0.1:8000/docs. Keep both processes running; use Ctrl+C to stop. Run exactly one backend worker.
 
-| Root .env variable | Default / purpose |
+| Configuration variable | Default / purpose |
 | --- | --- |
 | EXTRACTION_PROVIDER | mock; select gemini for real hosted LLM calls. |
 | GEMINI_API_KEY | Empty; a personal server-only key is required in Gemini mode. |
@@ -222,10 +222,9 @@ Open http://127.0.0.1:5173. API documentation: http://127.0.0.1:8000/docs. Keep 
 | MOCK_DELAY_MS | 650; artificial delay per attempt, 0-10000 ms. |
 | PROVIDER_TIMEOUT_SECONDS | 30; per-attempt timeout, greater than 0 and at most 120. |
 | TICKETS_PATH | data/tickets.jsonl; root-relative or absolute dataset path. |
-| BACKEND_URL | http://127.0.0.1:8000; Vite development/preview proxy target. |
-| VITE_API_BASE_URL | /api; browser API prefix. Never put a secret in a VITE_ variable. |
+| BACKEND_URL | http://127.0.0.1:8000; Next.js API rewrite target in development and production. Set in the frontend process, frontend/.env.local, or root .env before building/starting. |
 
-For Gemini: copy .env.example to root .env, set provider=gemini and your key, then restart services. Selected tickets are sent to Google's API. Account/model availability and quota require live verification; a concurrency cap does not enforce requests-per-minute limits. No real key is included or committed.
+For Gemini: copy .env.example to backend/.env, set EXTRACTION_PROVIDER=gemini and your key, then restart FastAPI. Selected tickets are sent to Google's API. A concurrency cap does not enforce requests-per-minute limits. Secrets stay server-only; never use NEXT_PUBLIC_ for a key. To serve a production frontend, run npm.cmd run build then npm.cmd run start, with FastAPI still running. API rewrite targets are fixed by the build.
 
 PROJECT SPECIFICATION / 09
 
@@ -235,16 +234,17 @@ Checks demonstrate workflow behavior; they do not establish real-model extractio
 
 | Evidence | Observed result / scope |
 | --- | --- |
-| Backend suite | 30 passing tests after the review-default fix: validation, retry feedback, job completion, progress, concurrency, cancellation, timeout, correction, versions, CSV, and simulated Gemini transport. |
+| Backend suite | 48 passing tests: validation, retry feedback, completion, progress, concurrency, cancellation, timeout, corrections, versions, CSV, simulated Gemini transport, and current review routing. |
 | Frontend suite | 8 passing tests after full-source selection was added: filtering, batch submission, incremental results, field errors, provenance, payload types, and draft protection. |
 | Static checks | Ruff lint/format checks passed; frontend Prettier, TypeScript checking, and production build passed for their latest relevant changes. |
-| Live full batch | 150/150 terminal results, 0 provider failures: 13 done and 137 needs_review under current mock rules. Those numbers describe routing, not accuracy or approvals. |
+| Offline full batch | 150/150 terminal results, 0 provider failures: 22 done and 128 needs_review under current mock rules. Those numbers describe routing, not accuracy or approvals. |
+| Live Gemini check | Invented outage/billing examples and sparse input verified extraction, USD refund parsing, correction, approval, version checks, and CSV. No assignment tickets were sent. |
 | Browser workflow | Ticket selection, early results, correction, invalid approval feedback, provenance, approval, actual CSV download, and responsive layout checked. |
-| Clean-clone installation | Snapshot 7b2ba81 installed and ran from a fresh local clone without copied .env or packages; 29 backend / 7 frontend tests then passed. Later changes were verified in the working checkout. |
+| Clean-clone installation | Migration commit 8c34ce2 installed in a fresh clone without copied .env or packages. Next.js build and eight frontend tests passed. Default mock HTTP workflow through Next.js covered progress, retry, correction, provenance, CSV, and direct job-page rendering. |
 
 ### Assignment acceptance checklist
 
-The grader can start the app without a key, select any ticket subset, receive HTTP 202 immediately, watch bounded concurrent processing, and inspect early results. Malformed output triggers one repair; repeated failure leaves a reviewable draft without failing the job. Human edits are validated and distinguishable, and only approved valid records export. Required decision notes and setup instructions are present. Frontend framework compliance remains an exception described on page 10.
+The grader can start without a key, select tickets, receive HTTP 202, watch bounded processing, and inspect early results. Invalid output triggers one repair; missing required values leave reviewable drafts. Edits are validated and distinguishable; only approved valid records export. Setup and decision notes are present. Next.js App Router meets the frontend stack requirement. The remaining twice-invalid-output routing departure is described on page 10.
 
 ### How to reproduce checks
 
@@ -270,19 +270,19 @@ The assignment deliverable is the repository; this PDF is a companion specificat
 | README.md | Prerequisites, installation, architecture, usage, API, tests, configuration, and troubleshooting. |
 | DECISIONS.md | Five required product decisions, data observations, provider choice, trade-offs, and another-day improvements. |
 | .env.example | All configurable values, empty key placeholders, no sensitive credentials. |
-| Git history | Small real development commits; no fabricated dates or reconstructed history. Snapshot d0b3567 contains 15 commits. |
+| Git history | Small real development commits, including the frontend migration; no fabricated dates or reconstructed history. |
 | Interview preparation | docs/INTERVIEW_GUIDE.md explains reading order, ticket lifecycle, async tasks, versions, and failure behavior. |
 
-### Known requirement departure
-The original brief specifies Next.js with the App Router. The owner requested React with Vite, which is the implemented frontend. That choice is documented but does not make the project compliant with the Next.js requirement. Resolve this with the assignment reviewer or migrate the frontend before submission.
+### Stack compliance and remaining departure
+The frontend now uses Next.js App Router, React, and TypeScript, satisfying the brief's stack requirement. Vitest uses Vite only as a test engine. Current review routing still permits schema-valid drafts after two invalid optional-value outputs; the brief requires needs_review after every second invalid output. That behavior needs a separate policy correction before strict compliance.
 
 ### Current limits
 
-The mock uses narrow text rules and leaves many missing facts unresolved. Real Gemini calls have not been verified. In-memory jobs, edits, approvals, and versions disappear on backend restart; multiple workers would disagree. There is no database, authentication, durable audit log, provider RPM limiter, or semantic accuracy evaluation. Attachment contents are unavailable. Note-based review triggers depend on known phrases. Internal navigation can discard drafts.
+The mock uses narrow text rules and leaves many missing facts unresolved. Gemini integration is verified on invented examples; assignment accuracy is unevaluated. In-memory jobs, edits, approvals, and versions disappear on backend restart; multiple workers would disagree. There is no database, authentication, durable audit log, provider RPM limiter, or semantic accuracy evaluation. Attachment contents are unavailable. Internal navigation can discard drafts.
 
 ### Implementation priorities after this snapshot
 
-First, verify Gemini with a locally stored key and a small labeled ticket sample. Then add structured warning codes, rate-limit backoff, persistence and edit-event history, and evaluation against human labels. Keyboard-first review, single-record reruns, richer currency/date handling, Docker Compose, and streaming progress are deferred. Persistent multi-user production deployment needs additional design.
+First, align twice-invalid-output routing with the brief. Then evaluate labeled extraction accuracy with approved data, add warning codes, rate-limit backoff, persistence, and edit-event history. Keyboard-first review, single-record reruns, richer currency/date handling, Docker Compose, and streaming progress remain deferred. Multi-user production deployment needs additional design.
 
 ### Submission and interview preparation
 

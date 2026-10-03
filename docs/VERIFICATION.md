@@ -65,3 +65,29 @@ on a real 150-ticket Gemini batch have not been evaluated. Account quota still a
   Done; only the sparse `?` record needed review. Corrections, approval, versions, and
   reviewed CSV passed. No assignment tickets were sent for this verification.
 - Restarted the running Gemini backend to load the updated routing policy.
+
+## Next.js App Router migration - 4 October 2026
+
+- Migration commit `8c34ce2` replaces the Vite application server and React Router
+  with Next.js 16.3.8 App Router. Vite remains only in the Vitest test tooling.
+- Verified development and production startup, `/`, direct `/jobs/[id]` visits,
+  unknown-page HTTP 404 responses, and API forwarding to the existing Gemini backend.
+  The frontend remains on port 5173. No assignment tickets were sent to Gemini.
+- Backend: 48 tests passed; Ruff lint and formatting checks passed.
+- Frontend: eight tests passed; TypeScript, Prettier, and Next.js production build passed.
+- Cloned `8c34ce2` into a fresh directory, created a new Python virtual environment,
+  installed requirements, and ran `npm ci` without copying dotenv files or installed
+  dependencies. Package downloads used local caches; npm reported zero vulnerabilities.
+- The fresh clone passed its production build, eight frontend tests, and formatting.
+  On separate verification ports, its default no-key mock backend and Next.js server
+  passed an HTTP workflow through the frontend's API rewrite: HTTP 202, progress
+  arithmetic, repair retry, a twice-invalid required-field draft, human correction,
+  field provenance, reviewed CSV, and a direct dynamic job-page visit.
+- A browser check confirmed the fresh-clone workbench displayed both completed
+  results, the needs-review item first, field errors, human provenance, and export.
+- Updated setup/configuration/interview notes and regenerated the ten-page specification
+  PDF. Rendered every page and checked layout, including complete enum values in the
+  schema table. The PDF build script is optional and requires ReportLab.
+
+Frontend framework compliance is now resolved. The separately documented
+twice-invalid-output routing departure remains; this migration does not change it.
