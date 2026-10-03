@@ -40,3 +40,25 @@ it('filters tickets and submits only the selected IDs before navigating to the j
   await waitFor(() => expect(api.start).toHaveBeenCalledWith(['tkt_0003']));
   expect(await screen.findByText('Job opened')).toBeInTheDocument();
 });
+
+it('can select the complete source batch without relying on the review demo', async () => {
+  vi.mocked(api.tickets).mockResolvedValue({
+    tickets: [ticket, { ...ticket, id: 'tkt_0003', subject: 'Search bug' }],
+  });
+  vi.mocked(api.start).mockResolvedValue({ id: 'all-tickets' } as Awaited<
+    ReturnType<typeof api.start>
+  >);
+  render(
+    <MemoryRouter>
+      <Routes>
+        <Route path="/" element={<TicketsPage />} />
+        <Route path="/jobs/:id" element={<p>Job opened</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  const user = userEvent.setup();
+  await screen.findByText('Search bug');
+  await user.click(screen.getByRole('button', { name: 'Select all 2 tickets →' }));
+  await user.click(screen.getByRole('button', { name: /Extract 2 tickets/ }));
+  await waitFor(() => expect(api.start).toHaveBeenCalledWith([ticket.id, 'tkt_0003']));
+});

@@ -73,6 +73,10 @@ export function TicketsPage() {
     });
   }
 
+  function selectAllTickets() {
+    setSelected(new Set(tickets.map((ticket) => ticket.id)));
+  }
+
   async function start() {
     setStarting(true);
     setError('');
@@ -131,9 +135,16 @@ export function TicketsPage() {
           i
         </span>
         <span>
-          Try the demo set to see retry repair, missing information, French currency, and multiple
-          issues.
+          Run any selected batch, or load the review demo to see retry repair, missing information,
+          French currency, and multiple issues.
         </span>
+        <button
+          className="text-button"
+          disabled={loading || !tickets.length}
+          onClick={selectAllTickets}
+        >
+          Select all {tickets.length} tickets →
+        </button>
         <button
           className="text-button"
           disabled={loading}
@@ -143,7 +154,7 @@ export function TicketsPage() {
             )
           }
         >
-          Select demo set →
+          Load review demo (8) →
         </button>
       </div>
 

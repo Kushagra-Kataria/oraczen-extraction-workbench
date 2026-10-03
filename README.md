@@ -109,8 +109,10 @@ fully tested grading path.
 
 ## Usage and demo
 
-1. Search/filter the inbox and select tickets. Selection persists across filters.
-2. Click **Select demo set**, then **Extract 8 tickets**.
+1. Search/filter the inbox and select tickets. Selection persists across filters. Use
+   **Select all 150 tickets** for a complete batch, or **Load review demo (8)** for the
+   deliberately difficult examples.
+2. Click **Extract** to start the selected batch.
 3. Watch progress and open results while the batch is still running.
 4. Compare the original text with proposed fields. Focusing a field highlights its
    evidence quote when it is present in the body.
