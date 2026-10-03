@@ -78,14 +78,15 @@ Run one backend worker. Multiple workers have separate in-memory state.
 
 ## Configuration
 
-Defaults work without an `.env` file. To customize them, copy `.env.example` to `.env`
-**in the repository root**, edit it, and restart both services:
+Defaults work without an `.env` file. To customize them, copy `.env.example` to
+`backend/.env`, edit it, and restart the backend:
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.example backend/.env
 ```
 
-On macOS/Linux: `cp .env.example .env`.
+On macOS/Linux: `cp .env.example backend/.env`. A root `.env` remains supported for
+existing setups, but `backend/.env` takes precedence when both files exist.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |

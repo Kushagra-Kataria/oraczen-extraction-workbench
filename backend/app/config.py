@@ -7,10 +7,16 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
+    # Keep runtime secrets next to the backend. The root file remains supported for
+    # existing setups; backend/.env takes precedence when both exist.
+    model_config = SettingsConfigDict(
+        env_file=(ROOT / ".env", BACKEND_ROOT / ".env"),
+        extra="ignore",
+    )
 
     extraction_provider: Literal["mock", "gemini"] = "mock"
     gemini_api_key: SecretStr = SecretStr("")
