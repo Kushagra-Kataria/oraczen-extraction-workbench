@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { api } from '../lib/api';
@@ -49,4 +49,42 @@ it('can select the complete source batch', async () => {
   await user.click(screen.getByRole('button', { name: 'Select all 2 tickets →' }));
   await user.click(screen.getByRole('button', { name: /Extract 2 tickets/ }));
   await waitFor(() => expect(api.start).toHaveBeenCalledWith([ticket.id, 'tkt_0003']));
+});
+
+it('previews the full source without extracting or losing the inbox selection', async () => {
+  // jsdom has no native dialog implementation; browser checks cover focus and Escape.
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      },
+    },
+    close: {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.removeAttribute('open');
+        this.dispatchEvent(new Event('close'));
+      },
+    },
+  });
+  const body = `${'A long quoted conversation. '.repeat(15)}\nFinal line beyond the inbox excerpt.`;
+  vi.mocked(api.tickets).mockResolvedValue({ tickets: [{ ...ticket, body, attachments: 2 }] });
+  render(<TicketsPage />);
+  const user = userEvent.setup();
+  await screen.findByText(ticket.subject);
+  await user.click(screen.getByLabelText(`Select ${ticket.id}`));
+  const viewButton = screen.getByRole('button', { name: `View ticket ${ticket.id}` });
+  await user.click(viewButton);
+  const preview = screen.getByRole('dialog', { name: ticket.subject });
+  expect(within(preview).getByText(/Final line beyond the inbox excerpt/).textContent).toBe(body);
+  expect(within(preview).getByText(ticket.from_email)).toBeInTheDocument();
+  expect(within(preview).getByText('2 (count only; files are not supplied)')).toBeInTheDocument();
+  expect(api.start).not.toHaveBeenCalled();
+  await user.click(within(preview).getByRole('button', { name: 'Close' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByLabelText(`Select ${ticket.id}`)).toBeChecked();
+  expect(screen.getByRole('button', { name: /Extract 1 ticket/ })).toBeEnabled();
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
 });

@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { TicketPreview } from '../components/TicketPreview';
 import { api } from '../lib/api';
 import { label, type Ticket } from '../lib/types';
 
 export function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [preview, setPreview] = useState<Ticket | null>(null);
   const [query, setQuery] = useState('');
   const [channel, setChannel] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -191,6 +193,7 @@ export function TicketsPage() {
                   <th>Ticket & conversation</th>
                   <th>Channel</th>
                   <th>Received</th>
+                  <th>Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -223,6 +226,15 @@ export function TicketsPage() {
                         month: 'short',
                       })}
                     </td>
+                    <td>
+                      <button
+                        className="text-button ticket-view-button"
+                        aria-label={`View ticket ${ticket.id}`}
+                        onClick={() => setPreview(ticket)}
+                      >
+                        View ticket
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -236,6 +248,7 @@ export function TicketsPage() {
           {selected.size} selected across all filters <span>150 source tickets · August 2026</span>
         </div>
       </section>
+      {preview && <TicketPreview ticket={preview} onClose={() => setPreview(null)} />}
     </>
   );
 }

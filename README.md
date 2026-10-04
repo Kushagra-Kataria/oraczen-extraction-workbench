@@ -135,6 +135,8 @@ environment settings and remain offline.
 
 1. Search/filter the inbox and select tickets. Selection persists across filters. Use
    **Select all 150 tickets** for a complete batch, or select individual/filtered tickets.
+   Use **View ticket** to read the full original conversation and metadata before
+   extraction. Close the preview with **Close** or Escape; your selection is preserved.
 2. Click **Extract** to start the selected batch.
 3. Watch progress and open results while the batch is still running.
 4. Compare the original text with proposed fields. Focusing a field highlights its

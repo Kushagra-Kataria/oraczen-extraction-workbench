@@ -127,3 +127,16 @@ departure present at that point was corrected in the later strict retry update.
   Restarted the local Gemini backend to load the fix; no extraction calls were made.
 - Regenerated the ten-page specification PDF, rendered every page, and checked the
   layout and schema table. PDF text checks confirmed the updated validation policy.
+
+## Inbox ticket preview - 4 October 2026
+
+- Added a View ticket action for each inbox row. The native modal shows the full
+  original body, subject, sender, channel, received time, and attachment count.
+- Viewing does not create a job or change selection. The preview is read-only;
+  Close and Escape return to the inbox. Long bodies scroll with the close header visible.
+- All nine frontend tests passed, including preservation of the complete body and
+  newlines, metadata, selection, and absence of an extraction call when previewing.
+  TypeScript, Prettier, and the Next.js production build passed.
+- Browser checks covered the forwarded tkt_0089 chain, sparse tkt_0020 with an empty
+  subject, initial focus, Escape dismissal, focus restoration, and retained selection.
+  No tickets were submitted to Gemini during these checks.
