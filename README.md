@@ -131,6 +131,13 @@ the account; concurrency limiting is not requests-per-minute limiting.
 Provider errors fail individual items without aborting the job.
 Keys stay on the backend, outside `NEXT_PUBLIC_` variables and version control; `.env` is ignored.
 
+## Deployed workbench
+
+A deployed version is available at [oraczen-extraction-workbench.vercel.app](https://oraczen-extraction-workbench.vercel.app/).
+It can be used to test the Gemini-backed extraction and classification workflow. Gemini
+mode in a deployed environment requires `EXTRACTION_PROVIDER=gemini` and a server-only
+`GEMINI_API_KEY` configured in that environment.
+
 The adapter follows the [Gemini REST API](https://ai.google.dev/api/generate-content).
 Its request shape and repair path are tested with a simulated HTTP transport.
 Live Gemini 3.1 Flash-Lite was verified on 4 October 2026 using invented tickets:
