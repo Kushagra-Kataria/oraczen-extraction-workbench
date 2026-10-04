@@ -1,5 +1,8 @@
 # Technical and product decisions
 
+This document explains the product rules, architecture, and trade-offs behind
+Extraction Workbench, including the limits of the current implementation.
+
 ## Data observations
 
 Twenty tickets were inspected before schema design. The dataset has 150 unique IDs,
@@ -37,11 +40,18 @@ Counters derive from items. Twice-invalid proposals count as processed/needs-rev
 provider errors count as failed. Both are terminal, so one bad item never blocks a batch.
 Cancellation counts unfinished items failed with explicit notes and cancelled job state.
 
-The deterministic mock is the grading default. Conservative text rules demonstrate
+The deterministic mock is the default provider. Conservative text rules demonstrate
 the workflow, not LLM accuracy. Body evidence takes priority over misleading subjects;
 agent suggestions in a transcript do not override the caller's answer. `tkt_0005`
 repairs on retry and `tkt_0003` deliberately fails twice. Missing facts can cause other
 tickets to remain invalid too.
+
+Mock text processing separates current issues, quoted context, and identity text.
+Recognizable footers and signatures cannot supply issue fields, while signatures
+remain available for company extraction. Specific error phrases replace a bare
+error keyword. Quoted unresolved issues remain available for follow-ups, with a
+visible reminder to check their current status. These rules are deterministic and
+cover recognizable email patterns rather than every possible message format.
 
 Optional Gemini 3.1 Flash-Lite was chosen for structured extraction and its documented
 free tier. Model availability/quota depend on the account; the model is configurable.
@@ -54,6 +64,14 @@ that check; semantic accuracy on those 150 tickets remains unevaluated.
 References: [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite),
 [pricing](https://ai.google.dev/gemini-api/docs/pricing),
 [REST API](https://ai.google.dev/api/generate-content).
+
+A separate ten-ticket comparison on 4 October 2026 produced one Done/nine Needs
+review in mock mode and six Done/four Needs review in Gemini, with no provider failures.
+It exposed two semantic defects: mock matched "error" in a confidentiality footer,
+and Gemini inferred a $3,600 refund from invoice differences without a refund request.
+The mock footer defect is fixed by the preprocessing above; the Gemini refund
+defect remains unresolved. The sample is not a labeled accuracy benchmark;
+schema validity and matching quotes cannot establish factual correctness.
 
 The frontend was migrated from Vite to Next.js App Router to meet the brief's stack
 requirement. Server route components define `/` and `/jobs/[id]`; interactive inbox,

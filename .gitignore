@@ -20,6 +20,10 @@ next-env.d.ts
 coverage/
 *.tsbuildinfo
 
+# Next.js-generated agent hints are not application or submission files
+frontend/AGENTS.md
+frontend/CLAUDE.md
+
 # Operating system and editor files
 .DS_Store
 Thumbs.db
@@ -31,3 +35,7 @@ Thumbs.db
 
 # Local verification clones and document renders
 /tmp/
+
+# Supplementary notes and generated specification are kept outside the submission
+/docs/
+/output/

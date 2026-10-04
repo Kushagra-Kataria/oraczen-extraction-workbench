@@ -1,25 +1,26 @@
 # Extraction Workbench
 
-A human review tool that extracts structured proposals from customer support tickets,
-shows uncertainty and validation failures, and supports corrections before CSV export.
+Extraction Workbench turns customer support tickets into structured proposals that
+a reviewer can inspect, correct, approve, and export. Uncertainty and validation
+failures stay visible so the reviewer retains the final decision.
 
-**Runs without an API key.** The default provider is a deterministic text-based mock.
-An optional Gemini adapter uses the same validation and retry pipeline.
+The default mock provider uses deterministic text rules and runs locally without
+an API key. The Gemini provider uses an LLM for extraction and classification.
+Both providers share the same validation and retry pipeline.
 
 ## Stack and scope
 
-Python/FastAPI/Pydantic backend, Next.js App Router/React/TypeScript frontend, and process-local storage.
-Two processes communicate over HTTP. No database, Docker, or global CLI is needed.
+The backend uses Python/FastAPI/Pydantic; the frontend uses Next.js App Router,
+React, and TypeScript. State is stored in memory, and the two processes communicate over HTTP.
+The application needs no database, Docker, or global CLI.
+
+Repository layout: `backend/` contains the API, providers, and tests; `frontend/`
+contains the App Router UI and tests; `data/` contains the original tickets. Local
+keys, dependencies, build output, and caches are ignored.
 
 The original brief is in [ASSIGNMENT.md](ASSIGNMENT.md). The frontend uses its required
 Next.js App Router, with `/` and `/jobs/[id]` routes and a shared root layout.
-See [DECISIONS.md](DECISIONS.md) for technical and product choices.
-The [complete project specification](output/pdf/Extraction_Workbench_Project_Specification.pdf)
-describes the feature set, contracts, workflow, verification, and implementation limits.
-Its editable text is in [docs/PROJECT_SPECIFICATION.md](docs/PROJECT_SPECIFICATION.md).
-The optional `docs/build_specification_pdf.py` script regenerates the PDF using
-ReportLab (`python -m pip install reportlab`, then `python docs/build_specification_pdf.py`
-from the root). ReportLab is not required to run the application.
+The technical and product reasoning is documented in [DECISIONS.md](DECISIONS.md).
 
 ## Prerequisites
 
@@ -39,7 +40,8 @@ git clone https://github.com/Kushagra-Kataria/oraczen-extraction-workbench.git
 cd oraczen-extraction-workbench
 ```
 
-Open two terminals in the repository root.
+The application runs as two services. The following commands start each service
+from a separate terminal in the repository root.
 
 ### Terminal 1: backend, Windows PowerShell
 
@@ -50,8 +52,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-No environment activation or PowerShell execution-policy changes are needed.
-For macOS/Linux, use these backend commands instead:
+The commands require no environment activation or PowerShell execution-policy changes.
+The equivalent backend commands for macOS/Linux are:
 
 ```sh
 cd backend
@@ -68,20 +70,20 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-On macOS/Linux, replace `npm.cmd` with `npm`. Using `npm.cmd` avoids PowerShell's
-restriction on the `npm.ps1` wrapper.
+On macOS/Linux, the command is `npm` rather than `npm.cmd`. On Windows, `npm.cmd`
+avoids PowerShell's restriction on the `npm.ps1` wrapper.
 
-Open **http://127.0.0.1:5173**. Backend API docs are at
+The workbench is available at **http://127.0.0.1:5173**. Backend API docs are at
 **http://127.0.0.1:8000/docs**; health is at **http://127.0.0.1:8000/api/health**.
-Keep both terminals running. Stop each server with Ctrl+C.
+Both services stay running during use; Ctrl+C stops each server.
 
-Run one backend worker. Multiple workers have separate in-memory state.
+The backend runs with one worker because multiple workers have separate in-memory state.
 `--reload` can help development, but every restart clears jobs and edits.
 
 ## Configuration
 
-Defaults work without an `.env` file. To customize them, copy `.env.example` to
-`backend/.env`, edit it, and restart the backend:
+The defaults work without an `.env` file. Custom configuration is loaded
+from `backend/.env` after a backend restart. This command creates that file from the template:
 
 ```powershell
 Copy-Item .env.example backend/.env
@@ -101,31 +103,54 @@ existing setups, but `backend/.env` takes precedence when both files exist.
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Optional real model identifier |
 | `BACKEND_URL` | `http://127.0.0.1:8000` | Next.js API rewrite target for development and production |
 
-The browser always calls `/api`. To change the backend address, set `BACKEND_URL` in
+The browser always calls `/api`. The backend address is configured through `BACKEND_URL` in
 the frontend process, `frontend/.env.local`, or the root `.env` before starting/building
 Next.js. Backend-only settings stay in `backend/.env`. API rewrites are recorded at
-build time, so rebuild before changing the production backend target.
+build time; changing the production backend target requires a rebuild.
 
-For real extraction, set `EXTRACTION_PROVIDER=gemini` and your own `GEMINI_API_KEY`.
-Tickets are then sent to Google's Gemini API. Check your account's current free-tier
-quota before a batch; concurrency limiting is not requests-per-minute limiting.
+### Switching providers
+
+Set the provider in `backend/.env`. For local deterministic processing without an API key:
+
+```dotenv
+EXTRACTION_PROVIDER=mock
+```
+
+For LLM extraction and classification with Gemini:
+
+```dotenv
+EXTRACTION_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+Restart the backend after changing providers, then start a new job. Restarting clears
+existing jobs and edits because state is stored in memory.
+
+In Gemini mode, selected tickets are sent to Google's Gemini API. Available quota depends on
+the account; concurrency limiting is not requests-per-minute limiting.
 Provider errors fail individual items without aborting the job.
-Never put a key in a `NEXT_PUBLIC_` variable or commit `.env`.
+Keys stay on the backend, outside `NEXT_PUBLIC_` variables and version control; `.env` is ignored.
 
 The adapter follows the [Gemini REST API](https://ai.google.dev/api/generate-content).
 Its request shape and repair path are tested with a simulated HTTP transport.
 Live Gemini 3.1 Flash-Lite was verified on 4 October 2026 using invented tickets:
 outage/billing extraction, USD refund extraction, validation, corrections, approval,
 stale-edit protection, and reviewed CSV export passed. This checks integration,
-not accuracy across the assignment dataset. Mock mode remains the grading default.
+not accuracy across the assignment dataset.
 
-To repeat that optional live check, run from `backend`:
+A separate ten-ticket comparison found semantic errors despite valid output types:
+mock misclassified a confidentiality footer, and Gemini inferred a refund that was
+not requested. The mock footer defect is addressed by the text processing described
+below; the Gemini refund error remains unresolved. The comparison does not establish
+extraction accuracy, and all proposals still require approval before export.
+
+The optional live check is reproducible from `backend` with:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/smoke_gemini.py
 ```
 
-On macOS/Linux: `.venv/bin/python scripts/smoke_gemini.py`. The script requires your
+On macOS/Linux: `.venv/bin/python scripts/smoke_gemini.py`. The script requires a configured
 Gemini key and consumes API quota. It creates an isolated app with invented tickets
 in a temporary directory; it does not send the assignment dataset or change jobs in
 the running workbench. Normal automated tests ignore local `.env` and provider
@@ -133,27 +158,28 @@ environment settings and remain offline.
 
 ## Usage
 
-1. Search/filter the inbox and select tickets. Selection persists across filters. Use
-   **Select all 150 tickets** for a complete batch, or select individual/filtered tickets.
-   Use **View ticket** to read the full original conversation and metadata before
-   extraction. Close the preview with **Close** or Escape; your selection is preserved.
-2. Click **Extract** to start the selected batch.
-3. Watch progress and open results while the batch is still running.
-4. Compare the original text with proposed fields. Focusing a field highlights its
+The review workflow has seven steps:
+
+1. The inbox supports search, channel filters, individual selection, and
+   **Select all 150 tickets**. **View ticket** shows the full original conversation
+   and metadata; **Close** or Escape dismisses it without changing the selection.
+2. **Extract** starts the selected batch.
+3. Progress and available results remain visible while the batch is running.
+4. Original text appears beside proposed fields. Focusing a field highlights its
    evidence quote when it is present in the body.
-5. Fix fields inline. **Save changes** validates supplied values and keeps a partial
+5. Fields are editable inline. **Save changes** validates supplied values and keeps a partial
    draft if other required fields remain missing.
 6. **Approve & save** validates the complete record and records a human review.
    Invalid approval shows errors beside the relevant fields.
-7. Click **Export reviewed** to download approved, schema-valid records.
+7. **Export reviewed** downloads approved, schema-valid records.
 
 Edited fields are visibly marked human-edited. Approval is a reviewer decision, not
-proof that every inference is correct. The grading mock deliberately returns invalid
+proof that every inference is correct. The mock deliberately returns invalid
 severity once for `tkt_0005` and an invalid product twice for `tkt_0003`; these exercise
 the repair and review paths through the same pipeline used by Gemini.
 
-The queue sorts `needs_review` first and filters human-edited, reviewed, and failed
-records. Unsaved input survives polling. Switching records/filters asks you to save or
+The queue sorts `needs_review` first and provides filters for human-edited, reviewed, and failed
+records. Unsaved input survives polling. Switching records/filters requires save or
 discard. Browser reload/close warns on an unsaved draft. Drafts are not durable across
 leaving the page. Original extraction notes remain visible after corrections.
 
@@ -163,8 +189,8 @@ become failed with cancellation notes; the job becomes `cancelled`.
 ## Architecture and contracts
 
 The mock separates issue text from email boilerplate while retaining signatures
-and quoted context. [Mock text processing](docs/MOCK_TEXT_PROCESSING.md) explains
-the rules, regression checks, and limitations.
+and quoted context. Its conservative rules favor specific issue phrases over broad
+keywords and keep quoted unresolved issues available as context.
 
 ```text
 Next.js App Router → HTTP /api rewrite → FastAPI → tracked job → shared semaphore
@@ -270,10 +296,10 @@ Backend coverage includes retry feedback, malformed JSON, repeated failure witho
 job failure, progress transitions, global concurrency, HTTP 202 responsiveness,
 cancellation, all 150 tickets, corrections, stale versions, CSV, timeouts, and the
 simulated Gemini transport. Frontend tests cover selection, early results, field
-errors, provenance, numeric payloads, and protecting drafts during polling/switching.
+errors, provenance, numeric payloads, inbox previews, and protecting drafts during polling/switching.
 
-To serve the production frontend, stop its dev server and run `npm.cmd run start`
-after building, keeping FastAPI running. Both development and production use port
+The production frontend runs with `npm.cmd run start` after building, with the dev
+server stopped and FastAPI running. Both development and production use port
 5173 and forward `/api` to FastAPI. Next.js handles direct visits to `/jobs/[id]` and
 unknown-page responses without a separate SPA fallback configuration.
 
@@ -286,6 +312,6 @@ unknown-page responses without a separate SPA fallback configuration.
 - Many review flags: missing facts are deliberately not guessed into validity.
 - Gemini errors: check key/quota; mock mode remains available without a key.
 
-No database, authentication, durable audit, or RPM limiter is included. Backend
-restarts lose jobs and edits. See [DECISIONS.md](DECISIONS.md) for trade-offs and
-[docs/INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md) for a code-reading walkthrough.
+Database storage, authentication, a durable audit, and RPM limiting are outside this
+implementation. Backend restarts lose jobs and edits. [DECISIONS.md](DECISIONS.md)
+records the trade-offs.
