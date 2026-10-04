@@ -36,7 +36,7 @@ it('filters tickets and submits only the selected IDs before navigating to the j
   await waitFor(() => expect(push).toHaveBeenCalledWith('/jobs/created'));
 });
 
-it('can select the complete source batch without relying on the review demo', async () => {
+it('can select the complete source batch', async () => {
   vi.mocked(api.tickets).mockResolvedValue({
     tickets: [ticket, { ...ticket, id: 'tkt_0003', subject: 'Search bug' }],
   });

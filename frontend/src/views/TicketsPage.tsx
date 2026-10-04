@@ -5,17 +5,6 @@ import { useRouter } from 'next/navigation';
 import { api } from '../lib/api';
 import { label, type Ticket } from '../lib/types';
 
-const DEMO_IDS = [
-  'tkt_0003',
-  'tkt_0004',
-  'tkt_0005',
-  'tkt_0020',
-  'tkt_0058',
-  'tkt_0089',
-  'tkt_0105',
-  'tkt_0131',
-];
-
 export function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -98,7 +87,7 @@ export function TicketsPage() {
           <p className="eyebrow">01 / SELECT</p>
           <h1>From conversations to clarity.</h1>
           <p className="subtitle">
-            Choose support tickets. Extract a proposal. Review every uncertain detail.
+            Choose support tickets. Extract structured fields. Review and approve results.
           </p>
         </div>
         <button className="button primary" disabled={!selected.size || starting} onClick={start}>
@@ -137,8 +126,8 @@ export function TicketsPage() {
           i
         </span>
         <span>
-          Run any selected batch, or load the review demo to see retry repair, missing information,
-          French currency, and multiple issues.
+          Select individual tickets, filtered results, or the full batch. Review each proposal
+          before export.
         </span>
         <button
           className="text-button"
@@ -146,17 +135,6 @@ export function TicketsPage() {
           onClick={selectAllTickets}
         >
           Select all {tickets.length} tickets →
-        </button>
-        <button
-          className="text-button"
-          disabled={loading}
-          onClick={() =>
-            setSelected(
-              new Set(DEMO_IDS.filter((id) => tickets.some((ticket) => ticket.id === id))),
-            )
-          }
-        >
-          Load review demo (8) →
         </button>
       </div>
 

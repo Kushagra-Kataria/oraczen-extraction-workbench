@@ -1,7 +1,7 @@
-"""Deterministic text-based mock, including documented failure demonstrations.
+"""Deterministic offline provider with reproducible validation failures for grading.
 
-This is a teaching/demo provider, not an accuracy claim. Missing facts remain null,
-and domain-based company guesses are visibly ungrounded in the shared pipeline.
+Its text rules do not measure LLM accuracy. Missing facts remain null, and domain-based
+company guesses are visibly ungrounded in the shared pipeline.
 """
 
 import asyncio
@@ -110,7 +110,7 @@ class MockProvider:
         amount: float | None = None
         if action == "refund" and "EUR" not in body.upper():
             dollars = re.findall(r"\$\s*([\d,]+(?:\.\d{1,2})?)", body)
-            # A sole amount beside a refund request is still a proposal needing review.
+            # A sole amount beside a refund request is a proposal for the reviewer to verify.
             if len(dollars) == 1:
                 amount = float(dollars[0].replace(",", ""))
                 evidence["refund_amount"] = first_match(body, r"\$\s*[\d,]+(?:\.\d{1,2})?")
