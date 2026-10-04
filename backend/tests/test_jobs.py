@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import httpx
 
@@ -31,6 +32,40 @@ async def test_twice_invalid_item_does_not_prevent_job_completion():
     assert repaired.attempts == 2
     assert job.snapshot()["done"] == 2
     assert job.snapshot()["failed"] == 0
+
+
+async def test_twice_invalid_optional_field_needs_review_without_failing_the_job():
+    class InvalidOptionalProvider(MockProvider):
+        async def extract(self, ticket, feedback=None):
+            if ticket.id == "tkt_0003":
+                return json.dumps(
+                    {
+                        "record": {
+                            "company": "Acme",
+                            "product": "Zen Vault",
+                            "category": "bug",
+                            "severity": "low",
+                            "requested_action": "fix",
+                            "escalated": False,
+                            "deadline": "Thursday",
+                        }
+                    }
+                )
+            return await super().extract(ticket, feedback)
+
+    manager = make_manager(InvalidOptionalProvider(0))
+    job = manager.submit(["tkt_0003", "tkt_0005"])
+    await manager.tasks[job.id]
+    snapshot = job.snapshot()
+    assert snapshot["state"] == "done"
+    assert snapshot["done"] == snapshot["total"] == 2
+    assert snapshot["needs_review"] == 1
+    assert snapshot["failed"] == snapshot["queued"] == snapshot["running"] == 0
+    rejected = manager.store.records[job.items[0].record_id]
+    assert rejected.status == "needs_review"
+    assert rejected.attempts == 2
+    assert rejected.values["deadline"] is None
+    assert any(error.field == "deadline" for error in rejected.errors)
 
 
 class GateProvider(MockProvider):

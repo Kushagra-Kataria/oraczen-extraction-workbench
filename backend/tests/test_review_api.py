@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import json
 
 import httpx
 import pytest
@@ -29,6 +30,52 @@ async def completed_job(client, manager, ids=None):
         await task
     records = (await client.get(f"/api/jobs/{job_id}/results")).json()["records"]
     return job_id, records[0]
+
+
+async def test_rejected_optional_value_needs_explicit_approval_before_export(session):
+    client, manager = session
+
+    class InvalidAmountProvider:
+        async def extract(self, ticket, feedback=None):
+            return json.dumps(
+                {
+                    "record": {
+                        "company": "Acme",
+                        "product": "Zen Studio",
+                        "category": "billing",
+                        "severity": "low",
+                        "requested_action": "refund",
+                        "escalated": False,
+                        "refund_amount": "125 USD",
+                    }
+                }
+            )
+
+    manager.provider = InvalidAmountProvider()
+    job_id, record = await completed_job(client, manager, ["tkt_0005"])
+    assert record["status"] == "needs_review"
+    assert not record["schema_valid"] and not record["reviewed"]
+    assert record["values"]["refund_amount"] is None
+    assert any(error["field"] == "refund_amount" for error in record["errors"])
+    export_url = f"/api/jobs/{job_id}/export.csv"
+    assert list(csv.DictReader(io.StringIO((await client.get(export_url)).text))) == []
+
+    # The reviewer may accept an empty optional value after checking the rejected output.
+    response = await client.patch(
+        f"/api/records/{record['id']}",
+        json={
+            "version": record["version"],
+            "fields": {},
+            "reviewed": True,
+        },
+    )
+    assert response.status_code == 200
+    approved = response.json()
+    assert approved["status"] == "done" and approved["schema_valid"] and approved["reviewed"]
+    assert approved["errors"] == []
+    assert approved["raw_outputs"] == record["raw_outputs"]
+    rows = list(csv.DictReader(io.StringIO((await client.get(export_url)).text)))
+    assert len(rows) == 1 and rows[0]["refund_amount"] == ""
 
 
 async def test_correction_rejects_invalid_fields_without_mutating(session):

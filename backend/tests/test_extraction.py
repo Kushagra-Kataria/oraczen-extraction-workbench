@@ -110,17 +110,66 @@ async def test_each_missing_required_field_routes_to_review(tickets, valid, name
 
 
 @pytest.mark.parametrize("change", [{"refund_amount": "125 USD"}, {"deadline": "Thursday"}])
-async def test_invalid_optional_value_can_be_omitted_without_review(tickets, valid, change):
-    result = await extract_ticket(
-        tickets["tkt_0005"], "job", ScriptedProvider([{**valid, **change}])
-    )
+async def test_invalid_optional_value_requires_review_after_failed_retry(tickets, valid, change):
+    provider = ScriptedProvider([{**valid, **change}])
+    result = await extract_ticket(tickets["tkt_0005"], "job", provider)
     name = next(iter(change))
-    assert result.status == "done"
-    assert result.schema_valid
+    assert result.status == "needs_review"
+    assert not result.schema_valid
     assert result.values[name] is None
+    assert result.values["company"] == valid["company"]
     assert result.attempts == 2
     assert len(result.raw_outputs) == 2
-    assert any("validated draft" in note for note in result.notes)
+    assert any(error.field == name for error in result.errors)
+    assert name in provider.feedback[1]
+
+
+@pytest.mark.parametrize(
+    "invalid,repaired",
+    [
+        ({"refund_amount": "125 USD"}, {"refund_amount": 125.0}),
+        ({"deadline": "Thursday"}, {"deadline": "2026-08-20"}),
+    ],
+)
+async def test_optional_value_repaired_on_retry_completes(tickets, valid, invalid, repaired):
+    provider = ScriptedProvider([{**valid, **invalid}, {**valid, **repaired}])
+    result = await extract_ticket(tickets["tkt_0005"], "job", provider)
+    assert result.status == "done"
+    assert result.schema_valid
+    assert result.attempts == 2
+    assert result.errors == []
+    name = next(iter(repaired))
+    assert result.values[name] == repaired[name]
+
+
+async def test_twice_unsupported_extra_field_requires_review(tickets, valid):
+    provider = ScriptedProvider([{**valid, "unexpected": "unsupported"}])
+    result = await extract_ticket(tickets["tkt_0005"], "job", provider)
+    assert result.status == "needs_review"
+    assert not result.schema_valid
+    assert result.values == valid
+    assert any(error.field == "record" for error in result.errors)
+    assert len(result.raw_outputs) == 2
+    assert "unexpected" in result.raw_outputs[1]
+
+
+@pytest.mark.parametrize("second", ["{", '{"record": {}, "notes": false}'])
+async def test_invalid_second_envelope_cannot_accept_the_first_draft(tickets, valid, second):
+    class RawProvider:
+        def __init__(self):
+            self.outputs = [json.dumps({"record": {**valid, "deadline": "Thursday"}}), second]
+
+        async def extract(self, ticket, feedback=None):
+            return self.outputs.pop(0)
+
+    result = await extract_ticket(tickets["tkt_0005"], "job", RawProvider())
+    assert result.status == "needs_review"
+    assert not result.schema_valid
+    assert result.values["company"] == valid["company"]
+    assert result.values["deadline"] is None
+    assert result.raw_outputs[1] == second
+    assert len(result.raw_outputs) == 2
+    assert any(error.field == "record" for error in result.errors)
 
 
 async def test_safe_negative_defaults_do_not_force_a_valid_ticket_into_review(tickets):

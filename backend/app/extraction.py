@@ -91,23 +91,9 @@ async def extract_ticket(
 
         return complete_record(record, extraction)
 
-    # The draft retains only individually valid fields. Invalid optional values are
-    # already null; missing/invalid required values remain null and fail this check.
-    # Validate the repaired draft before accepting it, never fabricate missing facts.
-    try:
-        extraction = Extraction.model_validate_json(json.dumps(record.values))
-    except ValidationError as exc:
-        # Preserve envelope/JSON diagnostics alongside the missing required fields.
-        record.errors = [
-            error for error in record.errors if error.field == "record"
-        ] + field_errors(exc)
-        record.notes.append(
-            "Output failed validation twice. Complete the required fields in the draft."
-        )
-        return record
-
+    # A usable partial draft does not make a rejected provider output acceptable.
+    # Retain the last validation errors and both raw attempts for a human decision.
     record.notes.append(
-        "Used validated draft fields after two rejected outputs. Invalid optional values "
-        "were left empty and unsupported fields omitted; raw attempts are preserved."
+        "Output failed validation twice. Review the errors and retained draft before approval."
     )
-    return complete_record(record, extraction)
+    return record
