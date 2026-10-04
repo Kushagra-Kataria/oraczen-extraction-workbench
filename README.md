@@ -131,11 +131,10 @@ in a temporary directory; it does not send the assignment dataset or change jobs
 the running workbench. Normal automated tests ignore local `.env` and provider
 environment settings and remain offline.
 
-## Usage and demo
+## Usage
 
 1. Search/filter the inbox and select tickets. Selection persists across filters. Use
-   **Select all 150 tickets** for a complete batch, or **Load review demo (8)** for the
-   deliberately difficult examples.
+   **Select all 150 tickets** for a complete batch, or select individual/filtered tickets.
 2. Click **Extract** to start the selected batch.
 3. Watch progress and open results while the batch is still running.
 4. Compare the original text with proposed fields. Focusing a field highlights its
@@ -146,19 +145,10 @@ environment settings and remain offline.
    Invalid approval shows errors beside the relevant fields.
 7. Click **Export reviewed** to download approved, schema-valid records.
 
-| Ticket | Behavior in mock mode |
-| --- | --- |
-| `tkt_0005` | Deliberately invalid first severity, repaired on retry |
-| `tkt_0003` | Deliberately invalid product twice; partial draft and raw outputs retained |
-| `tkt_0004`, `tkt_0020` | Provider skipped because content is insufficient |
-| `tkt_0058` | French text, EUR warning, sender/company conflict; no USD conversion |
-| `tkt_0089` | Churn priority, other issues in notes, ambiguous deadline left empty |
-| `tkt_0105` | Product typo normalized with a visible warning |
-| `tkt_0131` | Caller accepts a credit; approximate spoken amount stays unresolved |
-
-For a quick correction/export example, open `tkt_0003`, select **Zen Vault**, choose
-severity after reviewing impact, then approve. Those edited fields are visibly marked
-human-edited. Approval is a reviewer decision, not proof that every inference is correct.
+Edited fields are visibly marked human-edited. Approval is a reviewer decision, not
+proof that every inference is correct. The grading mock deliberately returns invalid
+severity once for `tkt_0005` and an invalid product twice for `tkt_0003`; these exercise
+the repair and review paths through the same pipeline used by Gemini.
 
 The queue sorts `needs_review` first and filters human-edited, reviewed, and failed
 records. Unsaved input survives polling. Switching records/filters asks you to save or
@@ -195,18 +185,20 @@ grounding (`grounded`, `inferred`, `missing`), evidence, raw attempts, current e
 original notes, and a version. `grounded` means a quote exists in the ticket, not
 calibrated confidence or semantic proof.
 
-Review routing depends on required-field completeness. A record is **Done** when
-`company`, `product`, `category`, `severity`, `requested_action`, and `escalated` all
-contain schema-valid values. Missing or invalid required values stay empty in the
-draft and require review. `escalated: false` and `requested_action: none` are valid
-values, not missing fields. `refund_amount` and `deadline` may be empty.
+A record is **Done** only when a provider output passes the complete Pydantic schema
+on the first or second attempt. Missing optional amounts/dates are allowed; malformed
+optional values are not. `escalated: false` and `requested_action: none` are valid values.
+Missing quotes, inferred values, and ambiguity notes stay visible without forcing
+an otherwise valid output into review.
 
-Missing quotes, inferred values, and ambiguity notes remain visible but do not route
-a complete record to review. If optional values remain invalid after the one repair
-attempt, the backend leaves them empty, preserves the raw attempts, and validates the
-repaired draft before marking it Done. Unsupported fields are omitted from that draft.
-Provider connection/timeouts remain **Failed**. Human edits use the same completeness
-rule; **Done** is separate from explicit review approval, which still gates CSV export.
+Every output that fails validation twice becomes **Needs review**, including invalid
+optional values, unknown fields, malformed JSON, and invalid proposal envelopes.
+Both raw attempts, final validation errors, and individually valid draft fields remain
+available. Invalid draft values are left empty for editing; sanitizing them never
+automatically accepts a rejected output. `schema_valid` remains false until a human
+save/approval validates the draft. A reviewer can repair a value or explicitly approve
+a valid draft with an empty optional field. Provider connection/timeouts remain **Failed**.
+**Done** is separate from approval, which still gates CSV export.
 
 ```text
 queued + running + done + failed = total

@@ -1,6 +1,6 @@
 # Extraction Workbench - Project Specification
 
-Updated: 4 October 2026, Next.js App Router migration.
+Updated: 4 October 2026, strict retry handling and submission verification.
 
 ORACZEN / TAKE-HOME B
 
@@ -12,10 +12,10 @@ A full-stack workspace for turning customer support conversations into validated
 
 | Input | Business fields | Current checks |
 | --- | --- | --- |
-| 150 source tickets | 8 structured values | 48 backend + 8 frontend tests |
+| 150 source tickets | 8 structured values | 55 backend + 8 frontend tests |
 
 ### Implementation snapshot - 4 October 2026
-Python/FastAPI and Next.js App Router implement the two-service workflow. Mock remains the no-key grading default. The optional Gemini adapter has passed a live integration check using invented tickets; accuracy across the assignment dataset is not measured. This specification includes the frontend migration and the current required-field review policy.
+Python/FastAPI and Next.js App Router implement the two-service workflow. Mock remains the no-key grading default. The optional Gemini adapter has passed a live integration check using invented tickets; accuracy across the assignment dataset is not measured. Every provider output that fails validation twice now requires review, with raw attempts and usable draft fields retained.
 
 Submission: Sunday, 4 October 2026, 12:00 PM IST. Deliver a public GitHub repository containing source code, README.md, DECISIONS.md, .env.example, and a clear history of real development commits.
 
@@ -51,9 +51,9 @@ The workbench provides one workflow: load tickets, select a batch, extract propo
 | Queue and export | Needs-review sorting; filters for human-edited, reviewed, and failed records. One-click CSV exports approved, valid records. |
 | Cancel and draft guards | Cancels unfinished work while retaining results; polling preserves unsaved edits, and record switches require save/discard. |
 
-### Three separate concepts
+### Two interchangeable providers
 
-Review demo: an eight-ticket selection shortcut highlighting difficult cases. Mock provider: the local extraction engine used for all selected tickets, required for no-key grading. Gemini provider: an optional real LLM used when configured. Selecting all tickets does not switch the provider.
+Mock provider: the deterministic local extraction engine required for no-key grading. Gemini provider: an optional real LLM used when configured. Both use the same job, validation, retry, review, and export pipeline. Select any subset or the complete source dataset; selecting tickets does not switch providers.
 
 PROJECT SPECIFICATION / 03
 
@@ -97,12 +97,12 @@ Select -> schedule -> provider -> validate -> store -> human review -> CSV.
 | 3. Bound concurrency | Tracked asynchronous tasks share one semaphore across jobs. Default cap: four provider calls. |
 | 4. Skip sparse input | Bodies exactly '?' or 'please advise' create incomplete review drafts without provider calls. |
 | 5. Validate output | Check the proposal envelope, each business field, and exact source-quote matches. |
-| 6. Retry or finalize | Retry once with field errors. Missing required fields retain a needs_review draft. Current policy permits dropping invalid optional values before accepting a fully validated draft; this departs from the brief's twice-invalid-output rule. Raw attempts remain available. |
+| 6. Retry or finalize | Retry once with actual validation errors. Every second invalid output becomes needs_review, including optional values, unknown fields, JSON, and envelope failures. Retain both raw outputs, final errors, and individually valid draft fields. |
 | 7. Isolate failures | Per-attempt timeout or provider exceptions fail one item; other tickets continue. |
 
 ### Completion and approval are different
 
-A job is done when all items have reached a terminal state. An item marked done has schema-valid required values; inference and ambiguity notes do not force review under the current policy. It is not automatically approved for CSV. Needs-review items also count as processed. A person must approve every record intended for export.
+A job is done when all items have reached a terminal state. An extracted item is done only when a provider output passes the complete schema. Inference and ambiguity notes alone do not force review. Every second invalid output needs review; a sanitized draft is not automatically accepted. Needs-review items count as processed. A person must approve every record intended for export.
 
 ```text
 queued + running + done + failed = total
@@ -129,9 +129,9 @@ Severity uses explicit phrases such as urgent, critical, scheduled-job failure, 
 | Deliberate mock failures | 0005 returns invalid severity on attempt one and repairs it. 0003 returns an invalid product on both attempts. |
 
 ### Why some results require review
-Missing or invalid required values require review. Conflicts, normalization, currency/amount ambiguity, relative deadlines, and multi-issue notes remain visible but do not route a complete record to review. action=none and escalated=false are valid values, labelled inferred when unquoted. Quote matching proves a phrase exists, not that its interpretation is correct.
+Missing required values or any other validation failure trigger one repair. If the second output still fails, the item requires review. Missing optional values are allowed; malformed optional values are rejected. Notes about conflicts, normalization, currency, dates, or multiple issues remain visible without changing an otherwise valid output's status. action=none and escalated=false are valid values. Quote matching proves presence, not correct interpretation.
 
-Gemini receives source instructions, a JSON schema, and repair feedback. Remote proposals may contain nulls; local Pydantic validation remains authoritative. Grounding flags and notes expose uncertainty to the reviewer. Current routing deliberately follows required-field completeness, with export still requiring explicit approval.
+Gemini receives source instructions, a JSON schema, and repair feedback. Remote proposals may contain nulls; local Pydantic validation remains authoritative. Grounding flags and notes expose uncertainty. A twice-rejected draft retains errors and is not marked schema-valid until a human save/approval validates it. The reviewer may correct an optional value or explicitly accept leaving it empty; export still requires approval.
 
 PROJECT SPECIFICATION / 06
 
@@ -234,17 +234,17 @@ Checks demonstrate workflow behavior; they do not establish real-model extractio
 
 | Evidence | Observed result / scope |
 | --- | --- |
-| Backend suite | 48 passing tests: validation, retry feedback, completion, progress, concurrency, cancellation, timeout, corrections, versions, CSV, simulated Gemini transport, and current review routing. |
+| Backend suite | 55 passing tests: validation, retry feedback, completion, progress, concurrency, cancellation, timeout, corrections, versions, CSV, simulated Gemini, strict optional/extra/envelope failures, and human approval of a retained draft. |
 | Frontend suite | 8 passing tests after full-source selection was added: filtering, batch submission, incremental results, field errors, provenance, payload types, and draft protection. |
 | Static checks | Ruff lint/format checks passed; frontend Prettier, TypeScript checking, and production build passed for their latest relevant changes. |
 | Offline full batch | 150/150 terminal results, 0 provider failures: 22 done and 128 needs_review under current mock rules. Those numbers describe routing, not accuracy or approvals. |
 | Live Gemini check | Invented outage/billing examples and sparse input verified extraction, USD refund parsing, correction, approval, version checks, and CSV. No assignment tickets were sent. |
 | Browser workflow | Ticket selection, early results, correction, invalid approval feedback, provenance, approval, actual CSV download, and responsive layout checked. |
-| Clean-clone installation | Migration commit 8c34ce2 installed in a fresh clone without copied .env or packages. Next.js build and eight frontend tests passed. Default mock HTTP workflow through Next.js covered progress, retry, correction, provenance, CSV, and direct job-page rendering. |
+| Clean-clone installation | Source commit 2f91ddb installed without copied .env or packages. 55 backend/eight frontend tests, lint, formatting, TypeScript, and Next.js build passed. No-key HTTP checks covered early results, progress, repair/review, corrections, provenance, versions, CSV, and dynamic/unknown routes. |
 
 ### Assignment acceptance checklist
 
-The grader can start without a key, select tickets, receive HTTP 202, watch bounded processing, and inspect early results. Invalid output triggers one repair; missing required values leave reviewable drafts. Edits are validated and distinguishable; only approved valid records export. Setup and decision notes are present. Next.js App Router meets the frontend stack requirement. The remaining twice-invalid-output routing departure is described on page 10.
+The grader can start without a key, select tickets, receive HTTP 202, watch bounded processing, and inspect early results. Invalid output triggers one repair; every second validation failure leaves a reviewable draft and raw outputs. Edits are validated and distinguishable; only approved valid records export. Setup and decision notes are present. Next.js App Router meets the frontend stack requirement.
 
 ### How to reproduce checks
 
@@ -273,8 +273,8 @@ The assignment deliverable is the repository; this PDF is a companion specificat
 | Git history | Small real development commits, including the frontend migration; no fabricated dates or reconstructed history. |
 | Interview preparation | docs/INTERVIEW_GUIDE.md explains reading order, ticket lifecycle, async tasks, versions, and failure behavior. |
 
-### Stack compliance and remaining departure
-The frontend now uses Next.js App Router, React, and TypeScript, satisfying the brief's stack requirement. Vitest uses Vite only as a test engine. Current review routing still permits schema-valid drafts after two invalid optional-value outputs; the brief requires needs_review after every second invalid output. That behavior needs a separate policy correction before strict compliance.
+### Required stack and retry behavior
+The frontend uses Next.js App Router, React, and TypeScript. Vitest uses Vite only as a test engine. Every provider output failing validation twice becomes needs_review, including optional fields and unsupported properties. Raw attempts and valid draft fields remain available for correction. The deterministic mock and deliberate failure paths remain part of no-key grading.
 
 ### Current limits
 
@@ -282,7 +282,7 @@ The mock uses narrow text rules and leaves many missing facts unresolved. Gemini
 
 ### Implementation priorities after this snapshot
 
-First, align twice-invalid-output routing with the brief. Then evaluate labeled extraction accuracy with approved data, add warning codes, rate-limit backoff, persistence, and edit-event history. Keyboard-first review, single-record reruns, richer currency/date handling, Docker Compose, and streaming progress remain deferred. Multi-user production deployment needs additional design.
+Evaluate labeled extraction accuracy with approved data, then add warning codes, rate-limit backoff, persistence, and edit-event history. Keyboard-first review, single-record reruns, richer currency/date handling, Docker Compose, and streaming progress remain deferred. Multi-user production deployment needs additional design.
 
 ### Submission and interview preparation
 

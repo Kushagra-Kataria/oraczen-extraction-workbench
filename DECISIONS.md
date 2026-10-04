@@ -72,14 +72,14 @@ against the source, but quote existence does not prove semantic correctness.
 Human-edited fields have explicit provenance; whole-record approval is separate.
 Original attempts and current field provenance are retained, not a full edit-event audit.
 
-At the owner's request, review routing uses required-field completeness only. Complete
-schema-valid records are Done even with inferred values or ambiguity notes; the six
-required fields must have valid values, while refund/deadline may be null. Invalid
-required values are left missing for human repair. After one provider retry, invalid
-optional values can be omitted from the individually validated draft; the entire
-repaired record must still pass Pydantic before completion. Evidence/notes remain
-visible, but no longer trigger review. This reduces the queue and shifts responsibility
-for checking plausible but incorrect values to the reviewer before export approval.
+Review routing follows the brief: a provider output must pass the complete schema;
+after one unsuccessful repair, every rejected output becomes needs_review. This
+includes malformed optional values and extra fields, even when a sanitized draft
+could pass. Raw attempts, final errors, and individually valid fields remain available
+for a human decision. A valid output may omit refund/deadline, and inferred values or
+ambiguity notes alone do not force review. Grounding and notes remain visible because
+schema validity cannot establish factual correctness. Rejected drafts remain marked
+schema-invalid until a human save/approval validates their current values.
 
 PATCH reuses the extraction field annotations, validates before replacing state, and
 requires complete validity for approval. A version rejects stale writes. Partial repairs
@@ -98,7 +98,7 @@ CSV uses the standard library and escapes spreadsheet formulas.
 Tests cover the three required backend scenarios plus all 150 tickets, timeouts,
 cancellation, corrections, stale edits, CSV, and simulated Gemini calls. Frontend tests
 cover selection, incremental results, field errors, provenance, and draft protection.
-Browser checks exercise demo processing, correction, approval, and CSV download.
+Browser checks exercise batch processing, correction, approval, and CSV download.
 Setup is checked in a fresh local clone.
 
 Another day would add SQLite and an edit-event audit, labeled accuracy evaluation,
@@ -108,5 +108,4 @@ future work.
 Keyboard shortcuts and single-record reruns are deferred. The mock's narrow phrase
 rules and quote-only grounding are the weakest parts: they establish workflow behavior,
 not semantic accuracy. Drafts are not durable; internal navigation away from the job
-page can discard them despite record-switch/reload guards. Required-field-only routing
-still departs from the brief when twice-invalid optional values are discarded.
+page can discard them despite record-switch/reload guards.

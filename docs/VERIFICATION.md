@@ -11,7 +11,7 @@ Environment: Windows, Python 3.14.7, Node.js 24.20.0, npm 11.19.0.
 - Frontend: 7 tests passed; Prettier check and TypeScript/production build passed.
 - Started FastAPI and the built frontend preview on separate verification ports.
 - Verified health through the frontend proxy, all 150 tickets, and SPA route fallback.
-- Opened that clean-clone preview in the browser, selected the eight-ticket demo,
+- Opened that clean-clone preview in the browser, selected eight tickets,
   and confirmed all eight reached terminal results without provider failures.
 - Earlier browser checks on the working checkout verified incremental results,
   invalid approval feedback, correction, human provenance, approval, and CSV download.
@@ -47,6 +47,9 @@ This validates the live integration on invented examples. Accuracy and throughpu
 on a real 150-ticket Gemini batch have not been evaluated. Account quota still applies.
 
 ## Required-field review routing — 4 October 2026
+
+Historical check: the optional-value fallback described below was superseded by
+the strict retry correction recorded later in this document.
 
 - Changed extraction and human-edit routing to use required-field completeness.
   Missing quotes, inferred values, notes, and absent optional fields no longer force
@@ -89,5 +92,38 @@ on a real 150-ticket Gemini batch have not been evaluated. Account quota still a
   PDF. Rendered every page and checked layout, including complete enum values in the
   schema table. The PDF build script is optional and requires ReportLab.
 
-Frontend framework compliance is now resolved. The separately documented
-twice-invalid-output routing departure remains; this migration does not change it.
+Frontend framework compliance was resolved by this migration. The retry-routing
+departure present at that point was corrected in the later strict retry update.
+
+## Strict retry and final workflow verification - 4 October 2026
+
+- Commit `88b2c6d` makes every second validation failure stay in needs_review,
+  including invalid optional values, unknown fields, malformed JSON, and invalid
+  envelopes. Both raw outputs, final errors, and usable draft fields are preserved.
+- Added regression tests for repaired optional values, repeated optional/extra-field
+  failure, an invalid second envelope after a usable first draft, job completion,
+  and explicit approval/export of a rejected draft with an empty optional value.
+- Commit `2f91ddb` removes the eight-ticket selection shortcut and its UI copy.
+  The assignment-required deterministic mock and its deliberate invalid outputs remain.
+- Backend: all 55 tests, Ruff lint, and formatting checks passed. The suite includes
+  offline processing of all 150 source tickets with correct terminal progress and
+  zero provider failures.
+- Frontend: all eight tests, Prettier, TypeScript, and Next.js production build passed.
+- Cloned `2f91ddb` into a new directory without copied dotenv files or dependencies.
+  Created a virtual environment, installed requirements, and ran npm ci. The clone
+  passed the same 55 backend/eight frontend tests, lint/format checks, and production build.
+  Downloads used local caches; npm reported zero vulnerabilities.
+- Started the clone's default mock backend and production Next.js server on separate
+  verification ports. Confirmed 150 source tickets, HTTP 202, early results while the
+  job was running, progress arithmetic, one repaired output, one twice-rejected output,
+  sparse-input skipping, field-specific HTTP 422, human provenance, stale HTTP 409,
+  one-row reviewed CSV with correct headers, direct job rendering, and unknown-page 404.
+- No assignment tickets were sent to Gemini. Test edits were confined to the isolated
+  verification app; the original dataset was not modified.
+- Updated README, DECISIONS, interview notes, and the companion PDF to describe the
+  strict retry rule and the single ticket-selection workflow.
+- Browser inspection confirmed the mock job's review ordering, human-edit indicator,
+  approved-only export, and the main inbox's 150-ticket selection without a demo shortcut.
+  Restarted the local Gemini backend to load the fix; no extraction calls were made.
+- Regenerated the ten-page specification PDF, rendered every page, and checked the
+  layout and schema table. PDF text checks confirmed the updated validation policy.

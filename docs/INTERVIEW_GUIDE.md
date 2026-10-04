@@ -39,11 +39,12 @@ editable if the full output fails. The worker stores a terminal result and the n
 shows it. Human edits carry a version and only changed fields. Validation precedes
 mutation; approval gates export.
 
-Review routing depends on the six required business fields. Complete valid records
-are Done even if evidence is inferred or notes contain ambiguity. Optional amount/date
-may be null; after a failed repair, invalid optional values can be omitted from the
-validated draft. A missing or invalid required value keeps the draft in Needs review.
-Human edits follow the same rule. Done describes completeness, not export approval.
+Provider outputs must pass the complete business schema before becoming Done.
+Optional amount/date may be null; an invalid value still fails validation. Every
+second failed output stays in Needs review, even if its sanitized draft has all required
+fields. Raw attempts and final errors explain why; a human save/approval validates the
+draft after a deliberate decision. Evidence gaps and ambiguity notes remain visible
+without forcing an otherwise valid output into review. Done does not grant export approval.
 
 ## Questions to be ready for
 
