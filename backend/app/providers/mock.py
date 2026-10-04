@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from ..schemas import Ticket
+from .ticket_text import customer_text
 
 
 def first_match(text: str, pattern: str) -> str | None:
@@ -23,22 +24,28 @@ class MockProvider:
 
     async def extract(self, ticket: Ticket, feedback: str | None = None) -> str:
         await asyncio.sleep(self.delay_ms / 1000)
-        # Retain the original body for evidence; quoted replies must not dominate classification.
-        body = "\n".join(
-            line for line in ticket.body.splitlines() if not line.lstrip().startswith(">")
-        )
+        content = customer_text(ticket.body)
+        # Current requests lead; quoted customer issues remain available as context.
+        sources = (content.current, content.quoted, ticket.subject)
+        body = f"{content.current}\n{content.quoted}"
         text = f"{ticket.subject}\n{body}"
         evidence: dict[str, str | None] = {}
         notes: list[str] = []
 
-        product_quote = first_match(body, r"zen (?:orchestrator|studioo?|connect|insights|vault)")
+        product_quote = None
+        for source in sources:
+            product_quote = first_match(
+                source, r"zen (?:orchestrator|studioo?|connect|insights|vault)"
+            )
+            if product_quote:
+                break
         product = product_quote.title() if product_quote else None
         if product and product.lower() == "zen studioo":
             product = "Zen Studio"
             notes.append("Product spelling was normalized from 'zen studioo'; verify it.")
         evidence["product"] = product_quote
 
-        company = self._company(body)
+        company = self._company(content.current_identity) or self._company(content.quoted_identity)
         evidence["company"] = company
         if not company:
             company = ticket.from_email.split("@")[-1].split(".")[0].title()
@@ -47,7 +54,7 @@ class MockProvider:
         elif ticket.from_email.split("@")[-1].split(".")[0].lower() not in company.lower():
             notes.append("Company in the body differs from the sender domain; verify the identity.")
 
-        category_rules = [
+        issue_rules = [
             ("churn_risk", r"non-renewal|do not renew|termination clause|not renew|contract lapse"),
             ("billing", r"billed|charged|invoice|refund|credit|factures|remboursement"),
             (
@@ -56,18 +63,40 @@ class MockProvider:
                 r"|completely down|nobody can run|throwing 502",
             ),
             ("feature_request", r"any plan to add|bulk re-run|SSO|Entra ID|roadmap|row-level"),
-            ("bug", r"serial numbers|serial-number|apostrophe|drops rows|error|erreur|échecs"),
-            ("how_to", r"how do|where do|does .*count|is there|can you"),
+            (
+                "bug",
+                r"serial numbers|serial-number|apostrophe|drops rows|échecs"
+                r"|\b(?:returns?|shows?|throws?|raises?|displays?)\b[^\n.!?]{0,60}\b(?:error|erreur)\b"
+                r"|\b(?:error|erreur)\s+(?:(?:code\s*)?\d{3,5}|when\b|while\b|during\b|occurs?\b)",
+            ),
         ]
         category = None
-        for source in (body, ticket.subject):
-            for candidate, pattern in category_rules:
+        for source in sources:
+            for candidate, pattern in issue_rules:
                 quote = first_match(source, pattern)
                 if quote:
                     category, evidence["category"] = candidate, quote
                     break
             if category:
                 break
+        if category is None:
+            for source in sources:
+                quote = first_match(source, r"how do|where do|does .*count|is there|can you")
+                if quote:
+                    category, evidence["category"] = "how_to", quote
+                    break
+        # Detect multiple issue types without a ticket-ID-specific expected output.
+        issue_categories = [
+            candidate for candidate, pattern in issue_rules if first_match(body, pattern)
+        ]
+        if len(issue_categories) > 1:
+            notes.append(
+                f"Multiple issues: {', '.join(issue_categories)}. Primary category is {category}."
+            )
+        if content.quoted.strip():
+            notes.append(
+                "Quoted customer content was retained as context; verify its current status."
+            )
 
         severity_quote = first_match(
             text, r"URGENT|critical|all of our scheduled jobs|blocker|workaround"
@@ -97,26 +126,36 @@ class MockProvider:
             ),
         ]
         # A support agent offering an option is not the customer's requested action.
-        action_text = "\n".join(
-            line for line in body.splitlines() if not line.strip().upper().startswith("AGENT:")
-        )
         action = "none"
-        for candidate, pattern in action_rules:
-            quote = first_match(action_text, pattern)
-            if quote:
-                action, evidence["requested_action"] = candidate, quote
+        action_source = content.current
+        for source in (content.current, content.quoted):
+            action_text = "\n".join(
+                line
+                for line in source.splitlines()
+                if not line.strip().upper().startswith("AGENT:")
+            )
+            for candidate, pattern in action_rules:
+                quote = first_match(action_text, pattern)
+                if quote:
+                    action, evidence["requested_action"] = candidate, quote
+                    action_source = action_text
+                    break
+            if action != "none":
                 break
 
         amount: float | None = None
-        if action == "refund" and "EUR" not in body.upper():
-            dollars = re.findall(r"\$\s*([\d,]+(?:\.\d{1,2})?)", body)
+        amount_source = action_source
+        if not first_match(amount_source, r"\$|\bEUR\b"):
+            amount_source = body
+        if action == "refund" and not first_match(amount_source, r"\bEUR\b"):
+            dollars = re.findall(r"\$\s*([\d,]+(?:\.\d{1,2})?)", amount_source)
             # A sole amount beside a refund request is a proposal for the reviewer to verify.
             if len(dollars) == 1:
                 amount = float(dollars[0].replace(",", ""))
-                evidence["refund_amount"] = first_match(body, r"\$\s*[\d,]+(?:\.\d{1,2})?")
+                evidence["refund_amount"] = first_match(amount_source, r"\$\s*[\d,]+(?:\.\d{1,2})?")
             elif dollars:
                 notes.append("Multiple USD amounts: refund amount requires human reconciliation.")
-        if "EUR" in body.upper():
+        if first_match(body, r"\bEUR\b"):
             eur_quote = first_match(body, r"[\d ]+ EUR")
             notes.append(
                 f"Original amount: {eur_quote}. Currency is EUR; no USD conversion was made."
@@ -134,11 +173,6 @@ class MockProvider:
 
         escalation = first_match(body, r"escalating|CFO|CTO|leadership|escalat(?:ed|ion)")
         evidence["escalated"] = escalation
-        if ticket.id == "tkt_0089":
-            notes.append(
-                "Multiple issues: export bug, billing discrepancy, and delayed SSO. "
-                "Primary category is churn_risk because of the explicit non-renewal threat."
-            )
         if ticket.attachments:
             notes.append("Attachments are counted in metadata but their contents are unavailable.")
 

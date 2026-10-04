@@ -162,6 +162,10 @@ become failed with cancellation notes; the job becomes `cancelled`.
 
 ## Architecture and contracts
 
+The mock separates issue text from email boilerplate while retaining signatures
+and quoted context. [Mock text processing](docs/MOCK_TEXT_PROCESSING.md) explains
+the rules, regression checks, and limitations.
+
 ```text
 Next.js App Router → HTTP /api rewrite → FastAPI → tracked job → shared semaphore
                                                             → mock/Gemini provider
