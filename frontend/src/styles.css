@@ -478,10 +478,26 @@ body:has(.ticket-dialog[open]) {
   text-decoration: underline;
 }
 .back-link {
-  display: inline-block;
-  font-size: 12px;
-  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #93c4b9;
+  border-radius: 8px;
+  background: #edf6f3;
+  font-size: 14px;
+  font-weight: 700;
+  color: #10685e;
   margin-bottom: 24px;
+}
+.back-link:hover {
+  background: #dcefea;
+  border-color: var(--teal);
+}
+.back-link span {
+  font-size: 20px;
+  line-height: 1;
 }
 .progress-panel {
   padding: 22px 24px;

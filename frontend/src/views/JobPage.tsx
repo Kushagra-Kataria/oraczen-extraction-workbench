@@ -129,7 +129,8 @@ export function JobPage({ id }: { id: string }) {
   return (
     <>
       <Link className="back-link" href="/">
-        ← Ticket inbox
+        <span aria-hidden="true">←</span>
+        Back to ticket inbox
       </Link>
       <div className="page-heading">
         <div>
